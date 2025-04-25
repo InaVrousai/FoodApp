@@ -1,0 +1,29 @@
+{
+  "StoreName": "Burger Express",
+  "Latitude": 37.9838,
+  "Longitude": 23.7275,
+  "FoodCategory": "fastfood",
+  "Stars": 4,
+  "NoOfVotes": 128,
+  "StoreLogo": "burger_logo.png",
+  "Products": [
+    {
+      "ProductName": "Cheeseburger",
+      "ProductType": "burger",
+      "Available Amount": 50,
+      "Price": 5.99
+    },
+    {
+      "ProductName": "Veggie Burger",
+      "ProductType": "burger",
+      "Available Amount": 30,
+      "Price": 6.49
+    },
+    {
+      "ProductName": "French Fries",
+      "ProductType": "side",
+      "Available Amount": 100,
+      "Price": 2.50
+    }
+  ]
+}
