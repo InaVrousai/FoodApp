@@ -1,0 +1,41 @@
+{
+  "StoreName": "La Crêpe Parisienne",
+  "Latitude": 48.8566,
+  "Longitude": 2.3522,
+  "FoodCategory": "crepe",
+  "Stars": 4,
+  "NoOfVotes":  89,
+  "StoreLogo": "la_crepe_logo.png",
+  "Products": [
+    {
+      "ProductName": "Nutella Crêpe",
+      "ProductType": "dessert",
+      "Available Amount": 30,
+      "Price": 5.50
+    },
+    {
+      "ProductName": "Strawberry Crêpe",
+      "ProductType": "dessert",
+      "Available Amount": 25,
+      "Price": 6.00
+    },
+    {
+      "ProductName": "Ham & Cheese Crêpe",
+      "ProductType": "savory",
+      "Available Amount": 20,
+      "Price": 7.25
+    },
+    {
+      "ProductName": "Banana Crêpe",
+      "ProductType": "dessert",
+      "Available Amount": 15,
+      "Price": 5.75
+    },
+    {
+      "ProductName": "Lemon & Sugar Crêpe",
+      "ProductType": "dessert",
+      "Available Amount": 10,
+      "Price": 4.50
+    }
+  ]
+}

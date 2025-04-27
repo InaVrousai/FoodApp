@@ -1,0 +1,47 @@
+{
+  "StoreName": "Rainy Day Coffee",
+  "Latitude": 47.6062,
+  "Longitude": -122.3321,
+  "FoodCategory": "coffee",
+  "Stars": 5,
+  "NoOfVotes": 200,
+  "StoreLogo": "rainy_day_coffee_logo.png",
+  "Products": [
+    {
+      "ProductName": "Espresso",
+      "ProductType": "coffee",
+      "Available Amount": 100,
+      "Price": 2.50
+    },
+    {
+      "ProductName": "Latte",
+      "ProductType": "coffee",
+      "Available Amount": 80,
+      "Price": 3.75
+    },
+    {
+      "ProductName": "Cappuccino",
+      "ProductType": "coffee",
+      "Available Amount": 75,
+      "Price": 3.95
+    },
+    {
+      "ProductName": "Americano",
+      "ProductType": "coffee",
+      "Available Amount": 90,
+      "Price": 2.95
+    },
+    {
+      "ProductName": "Mocha",
+      "ProductType": "coffee",
+      "Available Amount": 60,
+      "Price": 4.25
+    },
+    {
+      "ProductName": "Cold Brew",
+      "ProductType": "coffee",
+      "Available Amount": 50,
+      "Price": 3.50
+    }
+  ]
+}

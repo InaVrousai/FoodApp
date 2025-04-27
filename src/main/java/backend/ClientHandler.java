@@ -112,6 +112,43 @@ public class ClientHandler implements Runnable {
                         ? "ACK" : "ERROR";
                 return new CustomMessage(reply, new JSONObject(), null, null);
             }
+            case "RemoveProduct": {
+                System.out.println("[DEBUG] Known stores: " + MasterServer.storeNameToId.keySet());
+                // 1) pull store name & product name from the incoming JSON
+                String storeName   = params.getString("Store");
+                String productName = params.getString("Product");
+
+                // 2) look up the storeId (as you do for AddProduct)
+                Integer storeId = MasterServer.storeNameToId.get(storeName);
+                if (storeId == null) {
+                    return new CustomMessage(
+                            "ERROR",
+                            new JSONObject().put("message", "Unknown store: " + storeName),
+                            null,
+                            null
+                    );
+                }
+
+                // 3) pick the worker by consistent hashing & forward
+                int workerId = MasterServer.hash(storeId);
+                CustomMessage workerMsg = new CustomMessage(
+                        "RemoveProduct",
+                        new JSONObject()
+                                .put("restaurantId", storeId)
+                                .put("Product",       productName),
+                        null,
+                        null
+                );
+                Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+
+
+                // 4) return ACK or ERROR back to the manager
+                if (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
+                }
+            }
 
 
 

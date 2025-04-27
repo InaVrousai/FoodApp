@@ -124,13 +124,60 @@ public class MasterServer {
         return responses;
     }
 
+    private static void seedInitialStores() {
+        System.out.println("[Setup] Seeding initial stores…");
+        JasonParser parser = new JasonParser();
+
+        // 1) figure out where your JSON lives
+        String dataDir = System.getProperty("user.dir") + File.separator + "data";
+        File dir = new File(dataDir);
+        if (!dir.exists() || !dir.isDirectory()) {
+            System.err.println("[Setup] Data directory not found: " + dataDir);
+            return;
+        }
+
+        // 2) grab every .json file
+        File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
+        if (files == null || files.length == 0) {
+            System.err.println("[Setup] No JSON files found in: " + dataDir);
+            return;
+        }
+
+        // 3) load & send each store
+        for (File file : files) {
+            try {
+                System.out.println("[Setup] Loading store from: " + file.getName());
+                Store store = parser.jsonReader(file.getAbsolutePath());
+
+                // assign a new ID
+                int id = getNextRestaurantId();
+                store.setId(id);
+                storeNameToId.put(store.getStoreName(), id);
+
+                // forward to the hashed worker
+                int workerId = hash(id);
+                CustomMessage msg = new CustomMessage("AddStore", new JSONObject(), store, null);
+                Object resp = sendMessageExpectReply(msg, workerId);
+
+                if (resp instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    System.out.println("[Setup] Added `" + store.getStoreName()
+                            + "` (ID=" + id + ") to worker " + workerId);
+                } else {
+                    System.err.println("[Setup] Failed to add `" + store.getStoreName() + "`");
+                }
+            } catch (Exception e) {
+                System.err.println("[Setup] Error reading " + file.getName() + ": " + e.getMessage());
+            }
+        }
+    }
+
 
     public static void main(String[] args) {
         if (args.length != 1) {
             System.err.println("Usage: java MasterServer <num_of_workers>");
             System.exit(1);
         }
-       // List<Store> stores = readStoresFromFile("data/stores.json");
+
         int numOfWorkers = Integer.parseInt(args[0]);
 
 
@@ -150,6 +197,8 @@ public class MasterServer {
                     System.err.println("\n! Server.main(): Failed to read port from Worker: " + workerAddress);
                 }
             }
+
+            seedInitialStores();
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();

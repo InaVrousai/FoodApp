@@ -1,0 +1,35 @@
+{
+  "StoreName": "Pomodoro Pizza",
+  "Latitude": 40.8522,
+  "Longitude": 14.2681,
+  "FoodCategory": "pizza",
+  "Stars": 4,
+  "NoOfVotes": 310,
+  "StoreLogo": "pomodoro_pizza_logo.png",
+  "Products": [
+    {
+      "ProductName": "Margherita",
+      "ProductType": "pizza",
+      "Available Amount": 20,
+      "Price": 8.99
+    },
+    {
+      "ProductName": "Pepperoni",
+      "ProductType": "pizza",
+      "Available Amount": 25,
+      "Price": 10.50
+    },
+    {
+      "ProductName": "Four Cheese",
+      "ProductType": "pizza",
+      "Available Amount": 15,
+      "Price": 11.25
+    },
+    {
+      "ProductName": "BBQ Chicken",
+      "ProductType": "pizza",
+      "Available Amount": 10,
+      "Price": 12.75
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "StoreName": "Sakura Sushi",
+  "Latitude": 35.6895,
+  "Longitude": 139.6917,
+  "FoodCategory": "sushi",
+  "Stars": 5,
+  "NoOfVotes": 253,
+  "StoreLogo": "sakura_sushi_logo.png",
+  "Products": [
+    {
+      "ProductName": "Nigiri Deluxe",
+      "ProductType": "sushi",
+      "Available Amount": 40,
+      "Price": 12.99
+    },
+    {
+      "ProductName": "Dragon Roll",
+      "ProductType": "sushi",
+      "Available Amount": 60,
+      "Price": 11.50
+    },
+    {
+      "ProductName": "Sashimi Platter",
+      "ProductType": "sashimi",
+      "Available Amount": 30,
+      "Price": 18.00
+    },
+    {
+      "ProductName": "California Roll",
+      "ProductType": "sushi",
+      "Available Amount": 50,
+      "Price": 9.75
+    },
+    {
+      "ProductName": "Shrimp Tempura Roll",
+      "ProductType": "sushi",
+      "Available Amount": 45,
+      "Price": 10.25
+    }
+  ]
+}

@@ -129,10 +129,10 @@ public class Manager {
 
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-                    in.nextLine();
+
+
                     System.out.println ("And the name of the product: ");
                     product = in.nextLine();
-                    in.nextLine();
 
                     //filling up json
                     json = new JSONObject();

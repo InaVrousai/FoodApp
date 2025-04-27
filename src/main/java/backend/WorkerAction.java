@@ -87,6 +87,26 @@ public class WorkerAction implements Runnable {
                 store.setPriceRange(calculatePriceRange(store.getProductsList()));
                 return new CustomMessage("ACK", new JSONObject(), null, null);
             }
+            case "RemoveProduct": {
+                int storeId = message.getParameters().getInt("restaurantId");
+                Store store = Worker.storeMap.get(storeId);
+                if (store == null) {
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Store ID " + storeId + " not found"),
+                            null, null);
+                }
+                String productName = message.getParameters().getString("Product");
+                ArrayList<Product> products = store.getProductsList();
+                boolean removed = products.removeIf(p -> p.getProductName().equals(productName));
+
+                if (!removed) {
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Product " + productName + " not found in store ID " + storeId),
+                            null, null);
+                }
+                store.setPriceRange(calculatePriceRange(products));
+                return new CustomMessage("ACK", new JSONObject(), null, null);
+            }
             default:
                 // Unknown action
                 return new CustomMessage(
