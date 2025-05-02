@@ -1,4 +1,4 @@
-package main.java.backend;
+package backend;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -8,11 +8,11 @@ import org.json.JSONArray;
 
 public class Manager {
 
-
     public static void main(String[] args) {
         JasonParser j = new JasonParser();
         ManagerRequest managerRequest = new ManagerRequest();
         Scanner in = new Scanner(System.in);
+        Store storeObj;
         String store;
         String product;
         int productAmount;
@@ -32,7 +32,7 @@ public class Manager {
             System.out.println("3. Remove Product from a Store");
             System.out.println("4. View Total Sales of products");
             System.out.println("5. Increase Product amount from a Store");
-            System.out.println("6. Dicrease Product amount from a Store");
+            System.out.println("6. Remove Product amount from a Store");
             System.out.println("7. View Total Sales of a specific store type");
             System.out.println("8. View Total Sales of a specific product type");
             System.out.println("9. Exit");
@@ -41,148 +41,130 @@ public class Manager {
             in.nextLine();
 
             switch(choice){
-                case 1:
-
+                case 1: {
                     System.out.println("Please insert the json path: ");
                     path = in.nextLine();
-                    Store tempStore =  j.jsonReader(path);
+                    storeObj = j.jsonReader(path);
 
                     //adds the message type and Store in the message
-                    message = new CustomMessage("AddStore", null,tempStore,null);
+                    message = new CustomMessage("AddStore", null, storeObj, null);
 
                     //Sends the store to the Master
                     serverResponse = managerRequest.sendRequest(message);
-                    if (serverResponse == null) {
-                        System.err.println("No response from server—check that MasterServer is running.");
-                    } else if ("ACK".equals(serverResponse.getAction())) {
+                    //handles master response
+                    if (serverResponse.getAction().equals("ACK")) {
                         System.out.println("The store was added successfully");
                     } else {
                         System.out.println("Error store not added ");
                     }
-                    //handles master response
-
-                    if(serverResponse.getAction().equals("ACK")) {
-                        System.out.println("The store was added successfully");
-                    }else{
-                        System.out.println("Error store not added ");
-                    }
                     break;
+                }
 
-                case 2:
-
+                case 2: {
                     System.out.println("Please insert the name of the store:");
                     store = in.nextLine();
-                    //in.nextLine();
+                    in.nextLine();
 
                     System.out.println("Give product name");
                     String productName = in.nextLine();
-                    //in.nextLine();
+                    in.nextLine();
                     System.out.println("Give product type");
                     String productType = in.nextLine();
-                    //in.nextLine();
+                    in.nextLine();
                     System.out.println("Give product available amount");
                     productAmount = in.nextInt();
                     in.nextLine();
-                    while(productAmount < 0) {
+                    while (productAmount < 0) {
                         System.out.println("Product available amount cannot be negative!!!");
-                        System.out.println("Give new roduct available amount.");
+                        System.out.println("Give new product available amount.");
                         productAmount = in.nextInt();
                         in.nextLine();
                     }
 
-                    double productPrice;
-                    while (true) {
-                        System.out.println("Give product price");
-                        String priceToken = in.nextLine();
-                        try {
-                            productPrice = Double.parseDouble(priceToken);
-                            if (productPrice < 0) {
-                                System.out.println("Price cannot be negative!");
-                            } else {
-                                break;  // good value
-                            }
-                        } catch (NumberFormatException e) {
-                            System.out.println("Invalid decimal. Please enter a number like 7.00");
-                        }
+                    System.out.println("Give product price");
+                    double productPrice = in.nextDouble();
+                    while (productPrice < 0) {
+                        System.out.println("Product price amount cannot be negative!!!");
+                        System.out.println("Give new product price.");
+                        productPrice = in.nextDouble();
+                        in.nextLine();
                     }
-
                     //creates the new product
-                    Product productN = new Product(productName,productType,productAmount,productPrice);
+                    Product productN = new Product(productName, productType, productAmount, productPrice);
+                    JSONObject jsonStore = new JSONObject();
+                    jsonStore.put("StoreName", store);  // Adds store name
                     //adds the message type and product in the message
-                   // message = new CustomMessage("AddProduct", null,null,productN);
-
-                    JSONObject payload = new JSONObject();
-                    payload.put("StoreName", store);
-                    // send the store name + product object\
-                    message = new CustomMessage("AddProduct", payload, null, productN);
+                    message = new CustomMessage("AddProduct", jsonStore, null, productN);
 
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if(serverResponse.getAction().equals("ACK")) {
+                    if (serverResponse.getAction().equals("ACK")) {
                         System.out.println("The product was added successfully");
-                    }else{
+                    } else {
                         System.out.println("Error product not added ");
                     }
                     break;
-                case 3:
-
+                }
+                case 3: {
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-
-
-                    System.out.println ("And the name of the product: ");
+                    in.nextLine();
+                    System.out.println("And the name of the product: ");
                     product = in.nextLine();
+                    in.nextLine();
 
                     //filling up json
                     json = new JSONObject();
-                    json.put("Store", store);
+                    json.put("StoreName", store);
                     json.put("Product", product);
 
 
                     //adds the message type and product in the list
-                    message = new CustomMessage("RemoveProduct", json,null,null);
+                    message = new CustomMessage("RemoveProduct", json, null, null);
 
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if(serverResponse.getAction().equals("ACK")) {
+                    if (serverResponse.getAction().equals("ACK")) {
                         System.out.println("The product was removed successfully");
-                    }else{
+                    } else {
                         System.out.println("Error product not removed ");
                     }
                     break;
+                }
 
                 case 4:
-
-                    //adds the message type and product in the list
-                    message = new CustomMessage("TotalSales", null,null,null);
+                { //adds the message type and product in the list
+                    message = new CustomMessage("TotalSales", null, null, null);
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
-                    if(serverResponse.getAction().equals("ACK")) {
+                    if (serverResponse.getAction().equals("ACK")) {
                         //handles master response
-                        JSONArray array = serverResponse.getParameters().getJSONArray("TotalSales");
-                        for(int i=0;i<array.length();i++)
-                            System.out.println(array.getString(i));//ασ υποθεσουμε οτι καθε κελι εχει string στην μορφη pizza:100 klp
-                    }else{
+                        JSONObject salesData = serverResponse.getParameters(); // Get the JSONObject
+                        for (String productName : salesData.keySet()) { // Iterate through keys
+                            int totalSales = salesData.getInt(productName);
+                            System.out.println("Product: " + productName + ", Total Sales: " + totalSales);
+                        }
+                    } else {
                         System.out.println("Error with total sales");
                     }
                     break;
 
-
+                }
                 case 5:
-
+                {
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-
+                    in.nextLine();
                     System.out.println("Please insert the name of the product: ");
                     product = in.nextLine();
-
-                    System.out.println ("Please insert the amount of the product: ");
+                    in.nextLine();
+                    System.out.println("Please insert the amount of the product: ");
                     productAmount = in.nextInt();
                     in.nextLine();
 
-                    while(productAmount < 0) {
+                    while (productAmount < 0) {
                         System.out.println("You can not increase product available amount with a negative number !!!");
                         System.out.println("Give new product available amount.");
                         productAmount = in.nextInt();
@@ -191,37 +173,37 @@ public class Manager {
 
                     //filling up json
                     json = new JSONObject();
-                    json.put("Store", store);
+                    json.put("StoreName", store);
                     json.put("Product", product);
-                    json.put("Amount",productAmount);
+                    json.put("Amount", productAmount);
 
 
                     //adds the message type and product in the list
-                    message = new CustomMessage("IncreaseProductAmount", json,null,null);
+                    message = new CustomMessage("IncreaseProductAmount", json, null, null);
 
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if("ACK".equals(serverResponse.getAction())) {
+                    if (serverResponse.getAction().equals("ACK")) {
                         System.out.println("The product was increased successfully");
-                    }else{
+                    } else {
                         System.out.println("Error product was not increased");
                     }
                     break;
-
+                }
                 case 6:
-
+                {
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-
+                    in.nextLine();
                     System.out.println("Please insert the name of the product: ");
                     product = in.nextLine();
-
-                    System.out.println ("Please insert the amount of the product: ");
+                    in.nextLine();
+                    System.out.println("Please insert the amount of the product: ");
                     productAmount = in.nextInt();
                     in.nextLine();
 
-                    while(productAmount < 0) {
+                    while (productAmount < 0) {
                         System.out.println("You cant decrease product available with a negative number!!!");
                         System.out.println("Give new product available amount.");
                         productAmount = in.nextInt();
@@ -230,25 +212,24 @@ public class Manager {
 
                     //filling up json
                     json = new JSONObject();
-                    json.put("Store", store);
+                    json.put("StoreName", store);
                     json.put("Product", product);
-                    json.put("Amount",productAmount);
+                    json.put("Amount", productAmount);
 
 
                     //adds the message type and product in the list
-                    message = new CustomMessage("DecreaseProductAmount", json,null,null);
+                    message = new CustomMessage("DecreaseProductAmount", json, null, null);
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if("ACK".equals(serverResponse.getAction())) {
+                    if (serverResponse.getAction().equals("ACK")) {
                         System.out.println("The product was decreased successfully");
-                    }else{
+                    } else {
                         System.out.println("Error product was not decreased");
                     }
                     break;
-
-                case 7:
-
+                }
+                case 7: {
                     System.out.println("Please insert the food category of the store: ");
                     foodCategory = in.nextLine();
                     in.nextLine();
@@ -258,26 +239,34 @@ public class Manager {
 
 
                     //adds the message type and product in the list
-                    message = new CustomMessage("TotalSalesStoreCategory", json,null,null);
+                    message = new CustomMessage("TotalSalesStoreCategory", json, null, null);
 
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if(serverResponse.getAction().equals("ACK")) {
-                        Iterator<String> keys = serverResponse.getParameters().keys();
-                        while (keys.hasNext()) {
-                            String key = keys.next();
-                            System.out.println(key + ": " + serverResponse.getParameters().get(key));
+                    if (serverResponse.getAction().equals("ReducedTotalSales")) {
+                        JSONObject params = serverResponse.getParameters(); // Get the JSONObject
+                        if (params.has("Stores")) {
+                            int grandTotalSaless = 0;
+                            JSONArray storesArray = params.getJSONArray("Stores");
+                            for (int i = 0; i < storesArray.length(); i++) {
+                                JSONObject storeJ = storesArray.getJSONObject(i);//we take the jsonObject and we read its parameters
+                                String storeName = storeJ.getString("StoreName");
+                                int totalSales = storeJ.getInt("TotalSales");
+                                grandTotalSaless += totalSales;
+                                System.out.println("Store: " + storeName + ", Total Sales: " + totalSales);
+                            }
+                            System.out.println("Total Sales: "+ grandTotalSaless);
+                        }else{
+                            System.out.println("There isnt a store  with that food category");
                         }
-
-                    }else{
-                        System.out.println("Error");
+                    } else {
+                        System.out.println("Error with  total sales for this store category");
                     }
-
                     break;
-
+                }
                 case 8:
-
+                {
                     System.out.println("Please insert the product type: ");
                     product = in.nextLine();
                     in.nextLine();
@@ -287,23 +276,33 @@ public class Manager {
                     json.put("ProductType", product);
 
                     //adds the message type and product in the list
-                    message = new CustomMessage("TotalSalesProductType", json,null,null);
+                    message = new CustomMessage("TotalSalesProductType", json, null, null);
 
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if(serverResponse.getAction().equals("ACK")) {
-                        Iterator<String> keys = serverResponse.getParameters().keys();
-                        while (keys.hasNext()) {
-                            String key = keys.next();
-                            System.out.println(key + ": " + serverResponse.getParameters().get(key));
+                    if (serverResponse.getAction().equals("ReducedTotalSales")) {
+                        JSONObject params = serverResponse.getParameters(); // Get the JSONObject
+                        if (params.has("Stores")) {
+                            int grandTotalSales = 0;
+                            JSONArray storesArray = params.getJSONArray("Stores");
+                            for (int i = 0; i < storesArray.length(); i++) {
+                                JSONObject storeJ = storesArray.getJSONObject(i);//we take the jsonObject and we read its parameters
+                                String storeName = storeJ.getString("StoreName");
+                                int totalSales = storeJ.getInt("TotalSales");
+                                grandTotalSales += totalSales;
+                                System.out.println("Store: " + storeName + ", Total Sales: " + totalSales);
+                            }
+                            System.out.println("Total Sales: "+grandTotalSales);
+                        }else{
+                            System.out.println("There isnt a store that has that type of product type");
                         }
-
-                    }else{
-                        System.out.println("Error");
+                    } else {
+                        System.out.println("Error with total sales with this store based on this product type");
                     }
                     break;
 
+                }
                 case 9:
                     exit = true;
                     break;

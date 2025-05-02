@@ -1,4 +1,4 @@
-package main.java.backend;
+package backend;
 
 import java.io.*;
 import java.net.*;
@@ -7,9 +7,9 @@ public class ManagerRequest {
 
     public CustomMessage sendRequest(CustomMessage message) {
         CustomMessage response ;
-        try (Socket managerSocket = new Socket("localhost",5000 );
-             ObjectOutputStream out = new ObjectOutputStream(managerSocket.getOutputStream());
-             ObjectInputStream in = new ObjectInputStream(managerSocket.getInputStream());){
+        try (Socket managerSocket = new Socket("localhost",5000);
+       ObjectOutputStream out = new ObjectOutputStream(managerSocket.getOutputStream());
+       ObjectInputStream in = new ObjectInputStream(managerSocket.getInputStream());){
 
             System.out.println("Manager connected");
 
@@ -27,7 +27,8 @@ public class ManagerRequest {
         }
 
 
-        return null;
+        return new CustomMessage("NACK",null,null,null);
     }
 
 }
+

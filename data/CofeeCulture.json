@@ -1,0 +1,24 @@
+
+{
+"StoreName": "Coffee Culture",
+"Latitude": 37.9798,
+"Longitude": 23.7145,
+"FoodCategory": "cafe",
+"Stars": 4.2,
+"NoOfVotes": 75,
+"StoreLogo": "/usr/bin/images/storeLogo7.png",
+"Products": [
+{
+"ProductName": "Freddo Espresso",
+"ProductType": "coffee",
+"Available Amount": 90,
+"Price": 5.00
+},
+{
+"ProductName": "Cheese Pie",
+"ProductType": "pastry",
+"Available Amount": 70,
+"Price": 4.00
+}
+]
+}

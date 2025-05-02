@@ -1,24 +1,24 @@
-package main.java.backend;
+package backend;
 
 
 import java.io.Serializable;
 import java.util.ArrayList;
 
 public class Store implements Serializable {
-    private String storeName;
+    private static int id; //used in mapping
+    private final String storeName;
     private double latitude;
     private double longitude;
-    private String foodCategory;
+    private final String foodCategory;
     private double stars;
     private int numberOfVotes;
-    private String storeLogoPath;
+    private final String storeLogoPath;
     private ArrayList<Product> productsList;
     private String priceRange;
     private int totalSales = 0;
     public boolean storeInUse = false; // used in synchronisation
-    private static int id;
 
-    public Store(String storeName, double latitude, double longitude,String foodCategory ,double stars, int numberOfVotes, String storeLogoPath, ArrayList<Product> productsList, int id) {
+    public Store(String storeName, double latitude, double longitude,String foodCategory ,double stars, int numberOfVotes, String storeLogoPath, ArrayList<Product> productsList) {
         this.storeName = storeName;
         this.latitude = latitude;
         this.longitude = longitude;
@@ -27,10 +27,14 @@ public class Store implements Serializable {
         this.numberOfVotes = numberOfVotes;
         this.storeLogoPath = storeLogoPath;
         this.productsList = productsList;
-        //this.id = id;
+
     }
 
+    public int getId(){ return id;}
 
+    public  void setId(int id){
+        Store.id = id;
+    }
     public int getTotalSales(){ return totalSales;}
 
     public void addTotalSales(int amount){ this.totalSales += amount ;}
@@ -57,12 +61,40 @@ public class Store implements Serializable {
         productsList.add(product); //adds a product in the store
     }
 
+    public void calculatePriceRange(){
+        double sum =0;
+        for(Product product : productsList){
+            sum += product.getPrice();
+        }
+        double averagePrice = sum / productsList.size();
+        if( averagePrice <= 5 ){
+            setPriceRange("$");
+        }else if (averagePrice <=15){
+            setPriceRange("$$");
+        }else{
+            setPriceRange("$$$");
 
-    public  void setId(int id){
-        this.id = id;
+        }
     }
-    public int getId(){
-        return id;
+
+    public void setLatitude(double latitude) {
+        this.latitude = latitude;
+    }
+
+    public void setLongitude(double longitude) {
+        this.longitude = longitude;
+    }
+
+    public void setStars(double stars) {
+        this.stars = stars;
+    }
+
+    public void setPriceRange(String priceRange) {
+        this.priceRange = priceRange;
+    }
+
+    public void setNumberOfVotes(int numberOfVotes) {
+        this.numberOfVotes = numberOfVotes;
     }
 
     public String getStoreName() {
@@ -89,10 +121,6 @@ public class Store implements Serializable {
         return numberOfVotes;
     }
 
-    public String getStoreLogoPath() {
-        return storeLogoPath;
-    }
-
     public ArrayList<Product> getProductsList() {
         return productsList;
     }
@@ -100,7 +128,6 @@ public class Store implements Serializable {
     public String getPriceRange() {
         return priceRange;
     }
-    public void setPriceRange(String range) { this.priceRange = range; }
 
 
 }

@@ -1,4 +1,5 @@
-package main.java.backend;
+package backend;
+
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -7,14 +8,13 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 
-
+import static backend.Worker.storesList;
 import static java.lang.Math.min;
 
 
 public class WorkerAction implements Runnable {
     ObjectOutputStream objectOutputStream;
     ObjectInputStream objectInputStream;
-    private Store store = null;
 
     public WorkerAction(Socket socket) throws IOException {
         // Initialize output first to avoid deadlock
@@ -29,20 +29,23 @@ public class WorkerAction implements Runnable {
         try {
             Object received = objectInputStream.readObject();
             if (!(received instanceof CustomMessage)) {
-                objectOutputStream.writeObject(new CustomMessage("error", new JSONObject().put("message", "Invalid message type"), null, null));
+                objectOutputStream.writeObject(new CustomMessage("error", new JSONObject().put("message", "Invalid message type"),null,null));
                 return;
             }
 
             CustomMessage message = (CustomMessage) received;
-            System.out.println("Message received:" + message.getAction());
+
+            System.out.println("Message received:"+ message.getAction());
 
             CustomMessage responseMessage = handleAction(message);
 
             objectOutputStream.writeObject(responseMessage);
 
 
-        } catch (Exception e) {
+        } catch (IOException | ClassNotFoundException e) {
             System.err.println("Error handling customer: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         } finally {
             try {
                 objectInputStream.close();
@@ -52,41 +55,41 @@ public class WorkerAction implements Runnable {
             }
         }
     }
-
+WorkerInfo worker = new WorkerInfo(45,null,5000);
 
     private CustomMessage handleAction(CustomMessage message) throws Exception {
+
         switch (message.getAction()) {
-
-            case "AddStore": {
-                // 1) Extract Store object
+            // === MANAGER COMMANDS ==
+            case "AddStore":// μηπως να το μετακινησουμε στον worker αυτο
+            {
                 Store store = message.getStore();
-
-
-                store.setPriceRange(calculatePriceRange(store.getProductsList()));
-
+                System.out.println("Store added: " + store.getStoreName());
+                store.calculatePriceRange(); //calculate price range
                 // 4) Store in memory
-                Worker.stores.add(store);
+                storesList.add(store);
                 Worker.storeMap.put(store.getId(), store);
-
-
-                // 5) Acknowledge
-                return new CustomMessage("ACK", new JSONObject(), null, null);
+                return new CustomMessage("ACK", null, null, null);
             }
+
             case "AddProduct": {
+
                 int storeId = message.getParameters().getInt("restaurantId");
-                Store store = Worker.storeMap.get(storeId);   // O(1) lookup
+                Store store = Worker.storeMap.get(storeId);   // finds store
                 if (store == null) {
                     return new CustomMessage("ERROR",
                             new JSONObject().put("message", "Store ID " + storeId + " not found"),
                             null, null
                     );
                 }
-
-                // now add the product
+                //adds the product to the store
                 store.addProduct(message.getProduct());
-                store.setPriceRange(calculatePriceRange(store.getProductsList()));
-                return new CustomMessage("ACK", new JSONObject(), null, null);
+                System.out.println("Product " + message.getProduct() + " added to " + message.getStore().getStoreName());
+                //recalculates price range
+                store.calculatePriceRange();
+                return new CustomMessage("ACK", null, null, null);
             }
+
             case "RemoveProduct": {
                 int storeId = message.getParameters().getInt("restaurantId");
                 Store store = Worker.storeMap.get(storeId);
@@ -95,84 +98,347 @@ public class WorkerAction implements Runnable {
                             new JSONObject().put("message", "Store ID " + storeId + " not found"),
                             null, null);
                 }
-                String productName = message.getParameters().getString("Product");
-                ArrayList<Product> products = store.getProductsList();
-                boolean removed = products.removeIf(p -> p.getProductName().equals(productName));
+                //finds the product the manager refers to
+                store.removeProduct(message.getParameters().getString("Product"));
+                System.out.println("Product " + message.getParameters().getString("Store") + " removed from " + store.getStoreName());
+                store.calculatePriceRange(); //recalculates price range
+                return new CustomMessage("ACK", null, null, null);
+            }
+            case "TotalSales": {
 
-                if (!removed) {
+                int storeId = message.getParameters().getInt("restaurantId");
+                Store store = Worker.storeMap.get(storeId);   // O(1) lookup
+                if (store == null) {
                     return new CustomMessage("ERROR",
-                            new JSONObject().put("message", "Product " + productName + " not found in store ID " + storeId),
-                            null, null);
+                            new JSONObject().put("message", "Store ID " + storeId + " not found"),
+                            null, null
+                    );
                 }
-                store.setPriceRange(calculatePriceRange(products));
-                return new CustomMessage("ACK", new JSONObject(), null, null);
+                JSONObject json = new JSONObject();
+                for (Product p : store.getProductsList()) {
+                    json.put(p.getProductName(), p.getTotalSales());
+                }
+                System.out.println("Returning total sales");
+                return new CustomMessage("ACK", json, null, null);
             }
             case "IncreaseProductAmount": {
-                int storeId   = message.getParameters().getInt("restaurantId");
-                String name   = message.getParameters().getString("Product").trim();
-                int delta     = message.getParameters().getInt("Amount");
-                Store store   = Worker.storeMap.get(storeId);
-
-                System.out.printf("[DEBUG] IncAmt store=%d product=\"%s\" delta=%d%n", storeId, name, delta);
-                System.out.println("[DEBUG] Before update, products:");
-                for (Product p : store.getProductsList()) {
-                    System.out.printf("    • \"%s\": avail=%d%n",
-                            p.getProductName(), p.getAvailableAmount());
-                }
-
-                boolean found = false;
-                for (Product p : store.getProductsList()) {
-                    if (p.getProductName().trim().equalsIgnoreCase(name)) {
-                        p.setAvailableAmount(p.getAvailableAmount() + delta);
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    System.err.println("[DEBUG] Product not found: " + name);
+                //gets store id from customMessage
+                int storeId = message.getParameters().getInt("restaurantId");
+                Store store = Worker.storeMap.get(storeId);   //finds store
+                if (store == null) {
                     return new CustomMessage("ERROR",
-                            new JSONObject().put("message", "Product " + name + " not found"), null, null);
+                            new JSONObject().put("message", "Store ID " + storeId + " not found"),
+                            null, null
+                    );
                 }
+                synchronized (store) {
+                    //checks if the store is in use
+                    while (store.storeInUse) {
+                        try {
+                            store.wait(); //if store is in use wait
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            System.err.println("Thread Interrupted");
+                        }
+                    }
+                    //Store goes in use
+                    store.storeInUse = true;
 
-                System.out.println("[DEBUG] After update, new avail:");
-                for (Product p : store.getProductsList()) {
-                    if (p.getProductName().trim().equalsIgnoreCase(name)) {
-                        System.out.printf("    • \"%s\": avail=%d%n",
-                                p.getProductName(), p.getAvailableAmount());
+                    //Product amount
+                    int amount = message.getParameters().getInt("Amount");
+                    //finds the product we want to increase the amount
+                    Product product = store.findProduct(message.getParameters().getString("Product"));
+                    //increases the amount
+                    //sets product in use in case the product ammount was zero so it was not in use
+                    product.setProductInUse(true);
+                    product.setAvailableAmount(product.getAvailableAmount() + amount);
+
+                    store.storeInUse = false; // Release store usage
+                    store.notifyAll(); // wakes up other threads that are waiting for the store
+                }
+                return new CustomMessage("ACK", null, null, null);
+            }
+
+            case "DecreaseProductAmount": {
+                //gets store id from customMessage
+                int storeId = message.getParameters().getInt("restaurantId");
+                Store store = Worker.storeMap.get(storeId);   //finds store
+                if (store == null) {
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Store ID " + storeId + " not found"),
+                            null, null
+                    );
+                }
+                synchronized (store) {
+                    //checks if the store is in use
+                    while (store.storeInUse) {
+                        try {
+                            store.wait(); //if store is in use wait
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            System.err.println("Thread Interrupted");
+                        }
+                    }
+                    //Store goes in use
+                    store.storeInUse = true;
+
+                    //Product amount
+                    int amount1 = message.getParameters().getInt("Amount");
+                    //finds the product we want to decrease the amount
+                    Product product1 = store.findProduct(message.getParameters().getString("Product"));
+                    //if the amount we want to decrease is bigger than the curent amount we zero the available amount
+                    product1.setAvailableAmount(min(product1.getAvailableAmount() - amount1, 0));
+                    //if the product amount drops to zero the product goes out of use
+                    if (product1.getAvailableAmount() == 0)
+                        product1.setProductInUse(false);
+
+                    store.storeInUse = false; // Release store usage
+                    store.notifyAll(); // wakes up other threads that are waiting for the store
+                }
+                    return new CustomMessage("ACK", null, null, null);
+            }
+
+            case "TotalSalesProductType": {
+                //the jason object that stores the data that reducer needs
+                JSONObject mapJson = new JSONObject(); //action variable is used to know if we find the products we are looking for
+                String productType = message.getParameters().getString("ProductType");
+
+                //a jsonArray that stores intermediate data that is used by the reducer
+                JSONArray storesAnswers = new JSONArray();
+
+                for (Store store : storesList) {
+                    int totalProductSales = 0;
+
+                    for (Product p : store.getProductsList()) {
+                        if (p.getProductType().equals(productType)) {
+                            //adds  total sales
+                            totalProductSales += p.getTotalSales();
+
+                        }
+                        JSONObject storeAnswer = new JSONObject();
+                        storeAnswer.put("TotalSales", totalProductSales);
+                        storeAnswer.put("StoreName", store.getStoreName());
+                        storesAnswers.put(storeAnswer);//inserts store total sales info into the json array
                     }
                 }
+                    //inserts the data into the mapJson
+                    mapJson.put("MapID",message.getParameters().getInt("MapID"));
+                    mapJson.put("IntermediateData",storesAnswers);
 
-                store.setPriceRange(calculatePriceRange(store.getProductsList()));
-                return new CustomMessage("ACK", new JSONObject(), null, null);
+                sendToReducer(new CustomMessage(message.getAction(), mapJson, null, null)); //sends message to the reducer
+                return new CustomMessage("ACK",null,null,null);
+
             }
+
+            case "TotalSalesStoreCategory": {
+                //the jason object that stores the data that reducer needs
+                JSONObject mapJson = new JSONObject();
+                //a jsonArray that stores intermediate data that is used by the reducer
+                JSONArray storesAnswers = new JSONArray();
+                int totalSales = 0;
+                String storeFoodCategory = message.getParameters().getString("StoreFoodCategory");
+                for (Store store : storesList) {
+                    if (store.getFoodCategory().equals(storeFoodCategory)) {
+                        totalSales = store.getTotalSales();
+                    }
+                    JSONObject storeAnswer = new JSONObject();
+                    storeAnswer.put("TotalSales", totalSales);
+                    storeAnswer.put("StoreName", store.getStoreName());
+                    storesAnswers.put(storeAnswer);//inserts store total sales info into the json array
+                }
+                //inserts the data into the mapJson
+                mapJson.put("MapID",message.getParameters().getInt("MapID"));
+                mapJson.put("IntermediateData",storesAnswers);
+
+                sendToReducer(new CustomMessage(message.getAction(), mapJson, null, null)); //sends message to the reducer
+                return new CustomMessage("ACK",null,null,null);
+
+            }
+                //=====Client Commands=====
+            case "search":
+                return applyFilters(message);
+
+            case "buy":
+                return  buy(message);
+
+            case "rate":
+                return rate(message);
+
             default:
-                // Unknown action
-                return new CustomMessage(
-                        "NACK",
-                        new JSONObject().put(
-                                "message",
-                                "Unknown action: " + message.getAction()
-                        ),
-                        null,
-                        null
-                );
+                return new CustomMessage("NACK", null,null,null);
         }
 
     }
-    private String calculatePriceRange(ArrayList<Product> productsList){
-        double sum =0;
-        for(Product product : productsList){
-            sum += product.getPrice();
-        }
-        double averagePrice = sum / productsList.size();
-        if( averagePrice <= 5 ){
-            return "$";
-        }else if (averagePrice <=15){
-            return "$$";
-        }else{
-            return "$$$";
 
+    //Uses custom message that contains a json array with each product and the amount
+    private  CustomMessage buy(CustomMessage message) throws Exception {
+
+        int storeId = message.getParameters().getInt("restaurantId");
+        Store store = Worker.storeMap.get(storeId);   // finds store
+        if (store == null) {
+            return new CustomMessage("ERROR",
+                    new JSONObject().put("message", "Store ID " + storeId + " not found"),
+                    null, null
+            );
+        }
+        synchronized (store) {
+            //checks if the store is in use
+            while (store.storeInUse) {
+                try {
+                    store.wait(); //if store is in use wait
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.err.println("Thread Interrupted");
+                }
+            }
+            //Store goes in use
+            store.storeInUse = true;
+
+            //Reads a jason array from the json object ,that stores every product and the preferable amount the client wants
+            JSONArray productsArray = message.getParameters().getJSONArray("Order");
+            for (int i = 0; i < productsArray.length(); i++) {
+                JSONObject productObject = productsArray.getJSONObject(i);
+
+                //reads the Product name and amount from the json array cell
+                String productName = productObject.getString("Product");
+                Product product = store.findProduct(productName); //finds the product object based on the product name
+
+                int amount = productObject.getInt("Amount");
+                if (amount <= 0 || amount > product.getAvailableAmount()) {
+                    throw new Exception("The amount cannot be zero or less or bigger than the available amount ");
+                }
+
+                //Setting new available amount
+                product.setAvailableAmount(product.getAvailableAmount() - amount);
+                //if the customer buys all the product stock it gets out of use
+                if (product.getAvailableAmount() == 0)
+                    product.setProductInUse(false);
+                //updates total sales of the product
+                product.addTotalSales(amount);
+                store.addTotalSales(amount);
+            }
+
+            store.storeInUse = false; // Release store usage
+            store.notifyAll(); // wakes up other threads that are waiting for the store
+        }
+        return new CustomMessage("ACK",null,null,null);
+    }
+
+        //Uses custom message that contains store and the rating L
+        private CustomMessage rate (CustomMessage message){
+
+            int storeId = message.getParameters().getInt("restaurantId");
+            Store store = Worker.storeMap.get(storeId);   // O(1) lookup
+            if (store == null) {
+                return new CustomMessage("ERROR",
+                        new JSONObject().put("message", "Store ID " + storeId + " not found"),
+                        null, null
+                );
+            }
+            synchronized (store) {
+                //checks if the store is in use
+                while (store.storeInUse) {
+                    try {
+                        store.wait(); //if store is in use wait
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        System.err.println("Thread Interrupted");
+                    }
+                }
+                //Store goes in use
+                store.storeInUse = true;
+                //client rating
+                double rating = message.getParameters().getDouble("Rating");
+
+                //updating number of votes
+                int newNumberOfVotes = store.getNumberOfVotes() + 1;
+                store.setNumberOfVotes(newNumberOfVotes);
+                //current stars
+                double currentStars = store.getStars();
+                //calculating new rating
+                double newRating = ((currentStars * (newNumberOfVotes - 1)) + rating) / newNumberOfVotes;
+
+                //updating rating
+                store.setStars(newRating);
+
+
+                store.storeInUse = false; // Release store usage
+                store.notifyAll(); // wakes up other threads that are waiting for the store
+            }
+            return new CustomMessage("ACK",null,null,null);
+        }
+
+        //we check if the store can be returned based on the filters applied
+        private CustomMessage applyFilters (CustomMessage message){
+
+            double latitude = message.getParameters().getDouble("latitude");
+            double longitude = message.getParameters().getDouble("longitude");
+            JSONArray jArray = message.getParameters().getJSONArray("categories");
+
+            // Convert JSONArray to ArrayList
+            ArrayList<String> categories = new ArrayList<>();
+            for (int i = 0; i < jArray.length(); i++) {
+                categories.add(jArray.getString(i));
+            }
+            ArrayList<Store> tempStoreList = new ArrayList<>();
+            double minStars = message.getParameters().getDouble("minStars");
+            String priceRange = message.getParameters().getString("priceRange");
+            for (Store store : storesList) {
+            //if the store doesn't much one filter returns null
+            if (DistanceCalculator.calculateDistance(store.getLatitude(), store.getLongitude(), latitude, longitude) <= 5.0) {
+                if (store.getPriceRange().equals(priceRange) || priceRange.equals("-")) {
+                    if (store.getStars() == minStars || minStars == 0) {
+                        if (categories.contains(store.getFoodCategory()) || categories.isEmpty()) {
+                            //Returns message with the josn
+                            tempStoreList.add(store);//adds store to the storeList that the reducer will receive
+                        }
+                    }
+                }
+            }
+            }
+            JSONObject preReduce = new JSONObject();
+            preReduce.put("IntermediateData" ,storesWithProductsToJson(tempStoreList));
+            preReduce.put("MapID",message.getParameters().getInt("MapID"));
+            sendToReducer(new CustomMessage("Search", preReduce, null, null)); //sends message to the reducer
+            return new CustomMessage("ACK",null,null,null);
+        }
+    //Puts stores and their products in a json Array
+    public JSONArray storesWithProductsToJson(ArrayList<Store> stores) {
+        JSONArray storesJArray = new JSONArray();// stores all store jsons
+
+        for (Store store : stores) {
+            //stores the name the id and the  products jsonArray
+            JSONObject storeJson = new JSONObject();
+            storeJson.put("storeName", store.getStoreName());
+            storeJson.put("storeId", store.getId());
+
+            JSONArray productsArray = new JSONArray();
+            for (Product product : store.getProductsList()) {
+                JSONObject productJson = new JSONObject();
+                productJson.put("productName", product.getProductName());
+                productJson.put("productType", product.getProductType());
+                productJson.put("availableAmount", product.getAvailableAmount());
+                productJson.put("price", product.getPrice());
+                productJson.put("totalSales", product.getTotalSales());
+                productJson.put("productInUse", product.isProductInUse());
+
+                productsArray.put(productJson);
+            }
+
+            storeJson.put("products", productsArray); // add product list to store object
+            storesJArray.put(storeJson);           // add store to master array
+        }
+        return storesJArray;
+    }
+    private void sendToReducer(CustomMessage mapMessage) {
+        try (Socket reducerSocket = new Socket("localhost", 6000);
+             ObjectOutputStream out = new ObjectOutputStream(reducerSocket.getOutputStream())) {
+            out.writeObject(mapMessage);
+            out.flush();
+            System.out.println("Sent map message to reducer: " + mapMessage.getAction() +
+                    " (MapID=" + mapMessage.getParameters().getInt("MapID") + ")");
+        } catch (IOException e) {
+            System.err.println("Failed to send to reducer: " + e.getMessage());
         }
     }
 

@@ -1,0 +1,25 @@
+
+
+{
+"StoreName": "Little Italy",
+"Latitude": 37.997000,
+"Longitude": 23.732000,
+"FoodCategory": "italian",
+"Stars": 4.4,
+"NoOfVotes": 88,
+"StoreLogo": "/usr/bin/images/storeLogo5.png",
+"Products": [
+{
+"ProductName": "Fettuccine Alfredo",
+"ProductType": "pasta",
+"Available Amount": 50,
+"Price": 12.00
+},
+{
+"ProductName": "Tiramisu Delight",
+"ProductType": "dessert",
+"Available Amount": 25,
+"Price": 6.50
+}
+]
+}

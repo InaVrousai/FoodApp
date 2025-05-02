@@ -1,4 +1,4 @@
-package main.java.backend;
+package backend;
 
 import java.io.*;
 import java.net.*;
@@ -13,32 +13,28 @@ public class MasterServer {
     protected static final List<WorkerInfo> workers = new ArrayList<>();
 
     protected static final Map<String,Integer> storeNameToId = new ConcurrentHashMap<>();
+    //used for pending requests
+    protected static final Map<Integer, Socket> socketMap = new HashMap<>();
 
     // For order ID generation with thread-safe incrementation
     private static int restaurantId = 0;
-    private static int productId = 0;
-    private static int mapId = 0;
-
+    private static int mapID = 0;
+    //used for synchronisation
     private static final Object restaurantIdSyncObj = new Object();
-    private static final Object productIdSyncObj = new Object();
     private static final Object mapIdSyncObj = new Object();
+    protected static final Object socketMapLock = new Object();
 
     public static int getNextRestaurantId() {
         synchronized (restaurantIdSyncObj) {
             return restaurantId++;
         }
     }
-    public static int getNextProductId() {
-        synchronized (productIdSyncObj) {
-            return productId++;
+    //creates synchronized a unique mapID
+    public static int getNextMapId() {
+        synchronized (mapIdSyncObj) {
+            return mapID++;
         }
     }
-//    public static int getNextMapId() {
-//        synchronized (mapIdSyncObj) {
-//            return mapId++;
-//        }
-//    }
-
 
     protected static int hash(int restaurantId) {
         int numOfWorkers = workers.size();
@@ -52,7 +48,7 @@ public class MasterServer {
         return (int) (numOfWorkers * fractionalPart);
     }
 
-    protected static Object sendMessageExpectReply(Object msg, int workerId) {
+    protected static CustomMessage sendMessageExpectReply(Object msg, int workerId) {
         WorkerInfo worker = workers.get(workerId);
         try (Socket workerSocket = new Socket(worker.getAddress(), worker.getPort());
              ObjectOutputStream out = new ObjectOutputStream(workerSocket.getOutputStream());
@@ -60,7 +56,7 @@ public class MasterServer {
 
             out.writeObject(msg);
             out.flush();
-            return in.readObject();
+            return (CustomMessage) in.readObject();
         } catch (IOException | ClassNotFoundException e) {
             System.err.println("Error communicating with worker ID " + worker.getId());
             return null;
@@ -94,34 +90,12 @@ public class MasterServer {
 //            } catch (InterruptedException ignored) {}
 //        }
 //        return null;
-//    }
 
-    protected static void broadcastMessageToWorkers(Object msg) {
+//    }
+    protected static void broadcastMessageToWorkers(CustomMessage msg) {
         for (WorkerInfo worker : workers) {
             sendMessageToWorker(msg, worker.getId());
         }
-    }
-
-    protected static boolean broadcastMessageAndWaitForAck(Object msg) {
-        for (WorkerInfo worker : workers) {
-            Object response = sendMessageExpectReply(msg, worker.getId());
-            if (response == null || !(response instanceof String) || !((String) response).equalsIgnoreCase("ACK")) {
-                System.err.println("Worker " + worker.getId() + " failed to acknowledge.");
-                return false;
-            }
-        }
-        return true;
-    }
-
-
-
-    protected static Map<Integer, Object> broadcastAndCollectResponses(Object msg) {
-        Map<Integer, Object> responses = new HashMap<>();
-        for (WorkerInfo worker : workers) {
-            Object response = sendMessageExpectReply(msg, worker.getId());
-            responses.put(worker.getId(), response);
-        }
-        return responses;
     }
 
     private static void seedInitialStores() {
@@ -180,7 +154,6 @@ public class MasterServer {
 
         int numOfWorkers = Integer.parseInt(args[0]);
 
-
         // Start the server to accept connections from clients
         try (ServerSocket serverSocket = new ServerSocket(5000, 10)) {
             serverSocket.setReuseAddress(true);
@@ -200,19 +173,36 @@ public class MasterServer {
 
             seedInitialStores();
 
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-                System.out.println("\n> New client connected: " + clientSocket.getInetAddress().getHostAddress());
-                ClientHandler clientThread = new ClientHandler(clientSocket);
-                new Thread(clientThread).start();
+            try (ServerSocket reducerSocket = new ServerSocket(6000)) {
+                System.out.println("MasterServer listening for reducer messages on port 6000...");
+                while (true) {
+                    // Accept connections from Reducer
+                    Socket reducerSocketClient = reducerSocket.accept();
+                    System.out.println("> Reducer connected: " + reducerSocketClient.getInetAddress().getHostAddress());
+
+                    // Handle the reducer's message in a separate thread using MasterHandler or custom logic
+                    new Thread(() -> {
+                        // Handle reducer messages in a separate thread
+                        MasterHandler reducerHandler = new MasterHandler(reducerSocketClient);
+                        new Thread(reducerHandler).start();
+                    }).start();
+                }
+
+            } catch (IOException e) {
+                System.err.println("Error in reducer listener: " + e.getMessage());
             }
 
+
+            while (true) {
+                Socket masterHandler = serverSocket.accept();
+                System.out.println("\n> New client connected: " + masterHandler.getInetAddress().getHostAddress());
+                MasterHandler masterHandlerThread = new MasterHandler(masterHandler);
+                new Thread(masterHandlerThread).start();
+            }
 
 
         } catch (IOException e) {
             System.err.println("Error starting server: " + e.getMessage());
         }
     }
-
-
 }

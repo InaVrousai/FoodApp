@@ -1,0 +1,194 @@
+package backend;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
+
+public class ClientDummy {
+
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        boolean exit = true;
+
+        ClientRequest clientRequest = new ClientRequest();
+         System.out.println("Enter your latitude: ");
+        double latitude = in.nextDouble();
+        System.out.println("Enter your longitude: ");
+        double longitude = in.nextDouble();
+
+        //first show stores that are near the client
+        CustomMessage response1 = clientRequest.search(latitude, longitude, null,0, "-");
+        printReducedSearchResults(response1);//show stores near the client
+        while (exit) {
+            System.out.println("========== Client Menu ==========");
+            System.out.println("Welcome what do you want to do?");
+            System.out.println("1. Filter stores");
+            System.out.println("2. Select store");
+            System.out.println("3. Buy Product from a Store");
+
+            int choice = in.nextInt();
+            in.nextLine();
+
+            switch (choice) {
+                case 1: {
+                    System.out.print("Enter categories (comma-separated");
+                    String input = in.nextLine();
+                    in.nextLine();
+                    List<String> categories =   Arrays.asList(input.split(","));
+
+                    System.out.println("Enter minimum stars (0-5), 0 for any): ");
+                    int minStars = in.nextInt();
+                    in.nextLine();
+
+                    System.out.print("Enter price range ($, $$, $$$ or - for any): ");
+                    String priceRange = in.nextLine();
+                    in.nextLine();
+
+                    CustomMessage response = clientRequest.search(latitude, longitude, categories, minStars, priceRange);
+                    printReducedSearchResults(response);
+                    break;
+                }
+                case 2: {
+
+                    System.out.print("Enter store name to buy from: ");
+                    String storeName = in.nextLine().trim();
+
+                    // Fetch the chosen store's product list from the last search result
+                    JSONArray storesArray = null;
+                    if (response1.getParameters() != null && response1.getParameters().has("Stores")) {
+                        storesArray = response1.getParameters().getJSONArray("Stores");
+                    }
+
+                    if (storesArray == null) {
+                        System.out.println("No stores loaded. Please search first.");
+                        break;
+                    }
+
+                    JSONObject selectedStore = null;
+                    for (int i = 0; i < storesArray.length(); i++) {
+                        JSONObject storeJson = storesArray.getJSONObject(i);
+                        if (storeJson.getString("storeName").equalsIgnoreCase(storeName)) {
+                            selectedStore = storeJson;
+                            break;
+                        }
+                    }
+
+                    if (selectedStore == null) {
+                        System.out.println("Store not found.");
+                        break;
+                    }
+
+                    // Show available products
+                    JSONArray productsArray = selectedStore.getJSONArray("products");
+                    System.out.println("Products available in " + storeName + ":");
+                    for (int i = 0; i < productsArray.length(); i++) {
+                        JSONObject product = productsArray.getJSONObject(i);
+                        System.out.printf("- %s | Price: %.2f | Available: %d%n",
+                                product.getString("productName"),
+                                product.getDouble("price"),
+                                product.getInt("availableAmount"));
+                    }
+
+                    JSONArray orderArray = new JSONArray();
+                    boolean addMore = true;
+
+                    while (addMore) {
+                        System.out.print("Enter product name to buy: ");
+                        String productAnswer = in.nextLine().trim();
+
+                        JSONObject foundProduct = null;
+                        for (int i = 0; i < productsArray.length(); i++) {
+                            JSONObject p = productsArray.getJSONObject(i);
+                            if (p.getString("productName").equalsIgnoreCase(productAnswer)) {
+                                foundProduct = p;
+                                break;
+                            }
+                        }
+
+                        if (foundProduct == null) {
+                            System.out.println("Product not found.");
+                            continue;
+                        }
+
+                        System.out.print("Enter quantity to buy: ");
+                        int qty = in.nextInt();
+                        in.nextLine();
+
+                        int available = foundProduct.getInt("availableAmount");
+                        if (qty <= 0 || qty > available) {
+                            System.out.println("Invalid amount. Must be between 1 and " + available);
+                            continue;
+                        }
+
+                        JSONObject productJson = new JSONObject();
+                        productJson.put("Product", productAnswer);
+                        productJson.put("Amount", qty);
+                        orderArray.put(productJson);
+
+                        System.out.print("Do you want to add more products? (yes/no): ");
+                        String more = in.nextLine().trim().toLowerCase();
+                        addMore = more.equals("yes");
+                    }
+
+                    // Send buy request
+                    CustomMessage response = clientRequest.buy(storeName, orderArray, null);
+                    System.out.println("Order sent. Response: " + response.getAction());
+                    break;
+                }
+                case 3: {
+                    System.out.print("Enter store name to rate: ");
+                    String storeName = in.nextLine().trim();
+                    double stars = in.nextDouble();
+                    in.nextLine();
+
+                    CustomMessage response = clientRequest.rate(storeName, stars, null);
+
+                    break;
+                }
+                case 0:
+                    System.out.println("Exiting...");
+                    exit = false;
+                    break;
+
+                default:
+                    exit = false;
+                    System.out.println("There is no option: " + choice);
+                    break;
+
+            }
+        }
+    }
+
+    private static void printReducedSearchResults(CustomMessage response) {
+        JSONObject params = response.getParameters();
+
+        if (params == null || !params.has("Stores")) {
+            System.out.println("No search results found.");
+            return;
+        }
+
+        JSONArray storeArray = params.getJSONArray("Stores");
+
+        if (storeArray.isEmpty()) {
+            System.out.println("You live to far from civilisation ,no stores found");
+            return;
+        }
+
+        System.out.println("Stores matching your filters:");
+        for (int i = 0; i < storeArray.length(); i++) {
+            JSONObject storeJson = storeArray.getJSONObject(i);
+            String storeName = storeJson.getString("storeName");
+            System.out.println("- " + storeName);
+        }
+    }
+
+    }
+
+
+
+

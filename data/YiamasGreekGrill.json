@@ -1,0 +1,24 @@
+,
+{
+"StoreName": "Yiamas Greek Grill",
+"Latitude": 37.985000,
+"Longitude": 23.737000,
+"FoodCategory": "greek",
+"Stars": 4.7,
+"NoOfVotes": 120,
+"StoreLogo": "/usr/bin/images/storeLogo6.png",
+"Products": [
+{
+"ProductName": "Gyros Pita",
+"ProductType": "wrap",
+"Available Amount": 65,
+"Price": 8.00
+},
+{
+"ProductName": "Souvlaki Platter",
+"ProductType": "meat",
+"Available Amount": 35,
+"Price": 11.00
+}
+]
+}

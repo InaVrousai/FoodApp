@@ -1,0 +1,24 @@
+
+{
+"StoreName": "Green Earth Eats",
+"Latitude": 37.9377,
+"Longitude": 23.7458,
+"FoodCategory": "vegan",
+"Stars": 4.9,
+"NoOfVotes": 130,
+"StoreLogo": "/usr/bin/images/storeLogo9.png",
+"Products": [
+{
+"ProductName": "Quinoa Bowl",
+"ProductType": "bowl",
+"Available Amount": 35,
+"Price": 11.50
+},
+{
+"ProductName": "Vegan Moussaka",
+"ProductType": "casserole",
+"Available Amount": 18,
+"Price": 10.00
+}
+]
+}

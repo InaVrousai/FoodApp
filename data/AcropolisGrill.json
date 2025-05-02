@@ -1,0 +1,24 @@
+
+{
+"StoreName": "Acropolis Grill",
+"Latitude": 38.0461,
+"Longitude": 23.7912,
+"FoodCategory": "fastfood",
+"Stars": 4.0,
+"NoOfVotes": 60,
+"StoreLogo": "/usr/bin/images/storeLogo10.png",
+"Products": [
+{
+"ProductName": "Chicken Souvlaki",
+"ProductType": "skewer",
+"Available Amount": 75,
+"Price": 7.50
+},
+{
+"ProductName": "Pork Gyros",
+"ProductType": "wrap",
+"Available Amount": 60,
+"Price": 7.00
+}
+]
+}

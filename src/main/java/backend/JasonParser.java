@@ -1,18 +1,15 @@
-package main.java.backend;
+package backend;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.util.ArrayList;
 
 public class JasonParser {
 
     public  Store jsonReader(String filePath) {
-
         Store store = null;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
@@ -26,17 +23,18 @@ public class JasonParser {
             JSONObject storeJSON = new JSONObject(jsonContent.toString());
 
             // Extract store details
-            // Extract basic store details
-            String storeName = storeJSON.getString("StoreName");
-            double latitude = storeJSON.getDouble("Latitude");
-            double longitude = storeJSON.getDouble("Longitude");
-            String foodCategory = storeJSON.getString("FoodCategory");
-            int stars = storeJSON.getInt("Stars");
-            int numberOfVotes = storeJSON.getInt("NoOfVotes");
-            String logoPath = storeJSON.optString("StoreLogo", "");
+            store = new Store(
+                    storeJSON.getString("StoreName"),
+                    storeJSON.getDouble("Latitude"),
+                    storeJSON.getDouble("Longitude"),
+                    storeJSON.getString("FoodCategory"),
+                    storeJSON.getInt("Stars"),
+                    storeJSON.getInt("NoOfVotes"),
+                    storeJSON.getString("StoreLogo"),
+                    new ArrayList<Product>()
+            );
 
             // Extract products
-            ArrayList<Product> productList = new ArrayList<>();
             JSONArray productsArray = storeJSON.getJSONArray("Products");
             for (int i = 0; i < productsArray.length(); i++) {
                 JSONObject productJSON = productsArray.getJSONObject(i);
@@ -46,11 +44,8 @@ public class JasonParser {
                         productJSON.getInt("Available Amount"),
                         productJSON.getDouble("Price")
                 );
-                productList.add(product);
+                store.addProduct(product); // adds product in the list
             }
-
-            int id = storeJSON.has("Id") ? storeJSON.getInt("Id") : storeName.hashCode();
-            store = new Store(storeName, latitude, longitude, foodCategory, stars, numberOfVotes, logoPath, productList, id);
         } catch (Exception e) {
             System.err.println("Error reading JSON: " + e.getMessage());
         }
@@ -58,6 +53,4 @@ public class JasonParser {
         return store;
     }
 
-
 }
-

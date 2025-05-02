@@ -1,0 +1,16 @@
+
+{
+"StoreName": "Burger Heaven",
+"Latitude": 37.995000,
+"Longitude": 23.735000,
+"FoodCategory": "burgers",
+"Stars": 4.3,
+"NoOfVotes": 98,
+"StoreLogo": "/usr/bin/images/storeLogo3.png",
+"Products": [
+{
+"ProductName": "The Zeus Burger",
+"ProductType": "burger",
+"Available Amount": 55,
+"Price": 9.00
+}

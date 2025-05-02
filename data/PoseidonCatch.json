@@ -1,0 +1,23 @@
+{
+    "StoreName": "Poseidon's Catch",
+    "Latitude": 37.988000,
+    "Longitude": 23.730000,
+    "FoodCategory": "seafood",
+    "Stars": 4.5,
+    "NoOfVotes": 112,
+    "StoreLogo": "/usr/bin/images/storeLogo2.png",
+    "Products": [
+      {
+        "ProductName": "Grilled Kalamari",
+        "ProductType": "seafood",
+        "Available Amount": 28,
+        "Price": 14.00
+      },
+      {
+        "ProductName": "Fisherman's Pasta",
+        "ProductType": "pasta",
+        "Available Amount": 20,
+        "Price": 16.50
+      }
+    ]
+  }

@@ -1,4 +1,4 @@
-package main.java.backend;
+package backend;
 
 import java.io.*;
 import java.net.*;
@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Worker{
 
-    protected final static ArrayList<Store> stores = new ArrayList<>();
-    protected static final Map<Integer, Store> storeMap = new ConcurrentHashMap<>();
+    protected  static ArrayList<Store> storesList = new ArrayList<>();
+    protected  static  Map<Integer, Store> storeMap = new ConcurrentHashMap<>(); //is used to find store quickly
 
     public static void main(String[] args) {
         if (args.length != 2) {

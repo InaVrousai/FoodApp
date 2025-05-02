@@ -1,0 +1,24 @@
+
+{
+"StoreName": "Aegean Delights",
+"Latitude": 37.9400,
+"Longitude": 23.6482,
+"FoodCategory": "seafood",
+"Stars": 4.5,
+"NoOfVotes": 102,
+"StoreLogo": "/usr/bin/images/storeLogo8.png",
+"Products": [
+{
+"ProductName": "Shrimp Saganaki",
+"ProductType": "seafood",
+"Available Amount": 22,
+"Price": 19.50
+},
+{
+"ProductName": "Octopus in Wine Sauce",
+"ProductType": "seafood",
+"Available Amount": 26,
+"Price": 21.00
+}
+]
+}

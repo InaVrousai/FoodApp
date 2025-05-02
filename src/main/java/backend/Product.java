@@ -1,17 +1,12 @@
-package main.java.backend;
+package backend;
 
 import org.json.JSONObject;
 
-import java.io.Serializable;
-
-public class
-Product implements Serializable {
-    private static final long serialVersionUID = 1L;
-
-    private String productName;
-    private String productType;
+public class Product {
+    private final String productName;
+    private final String productType;
     private int availableAmount;
-    private double price;
+    private final double price;
     private boolean productInUse = true;
     private int totalSales =0;
 
@@ -29,8 +24,6 @@ Product implements Serializable {
     }
 
     public  void setAvailableAmount(int amount){ this.availableAmount = amount ; }
-
-    public void setTotalSales(int amount){ totalSales = amount;}
 
     public String getProductName() {
         return productName;
