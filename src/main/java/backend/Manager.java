@@ -31,8 +31,8 @@ public class Manager {
             System.out.println("2. Add Product to a Store");
             System.out.println("3. Remove Product from a Store");
             System.out.println("4. View Total Sales of products");
-            System.out.println("5. Remove Product amount from a Store");
-            System.out.println("6. Remove Product amount from a Store");
+            System.out.println("5. Increase Product amount from a Store");
+            System.out.println("6. Dicrease Product amount from a Store");
             System.out.println("7. View Total Sales of a specific store type");
             System.out.println("8. View Total Sales of a specific product type");
             System.out.println("9. Exit");
@@ -174,10 +174,10 @@ public class Manager {
 
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Please insert the name of the product: ");
                     product = in.nextLine();
-                    in.nextLine();
+
                     System.out.println ("Please insert the amount of the product: ");
                     productAmount = in.nextInt();
                     in.nextLine();
@@ -202,7 +202,7 @@ public class Manager {
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if(serverResponse.getAction().equals("ACK")) {
+                    if("ACK".equals(serverResponse.getAction())) {
                         System.out.println("The product was increased successfully");
                     }else{
                         System.out.println("Error product was not increased");
@@ -213,10 +213,10 @@ public class Manager {
 
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Please insert the name of the product: ");
                     product = in.nextLine();
-                    in.nextLine();
+
                     System.out.println ("Please insert the amount of the product: ");
                     productAmount = in.nextInt();
                     in.nextLine();
@@ -240,7 +240,7 @@ public class Manager {
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if(serverResponse.getAction().equals("ACK")) {
+                    if("ACK".equals(serverResponse.getAction())) {
                         System.out.println("The product was decreased successfully");
                     }else{
                         System.out.println("Error product was not decreased");

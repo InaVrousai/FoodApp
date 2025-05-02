@@ -149,6 +149,74 @@ public class ClientHandler implements Runnable {
                     return new CustomMessage("ERROR", new JSONObject(), null, null);
                 }
             }
+            case "IncreaseProductAmount": {
+                System.out.println("[DEBUG ClientHandler] IncreaseProductAmount params: " + params);
+                // 1) extract
+                String storeName = params.getString("Store");
+                String productName = params.getString("Product");
+                int delta = params.getInt("Amount");
+
+                // 2) lookup
+                Integer storeId = MasterServer.storeNameToId.get(storeName);
+                if (storeId == null) {
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Unknown store: " + storeName),
+                            null, null);
+                }
+                int workerId = MasterServer.hash(storeId);
+
+                // 3) forward
+                CustomMessage workerMsg = new CustomMessage(
+                        "IncreaseProductAmount",
+                        new JSONObject()
+                                .put("restaurantId", storeId)
+                                .put("Product",        productName)
+                                .put("Amount",         delta),
+                        null,
+                        null
+                );
+                Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+
+                // 4) return
+                if (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
+                }
+            }
+
+            case "DecreaseProductAmount": {
+                // mirror of Increase but subtract
+                String storeName = params.getString("Store");
+                String productName = params.getString("Product");
+                int delta = params.getInt("Amount");
+
+                Integer storeId = MasterServer.storeNameToId.get(storeName);
+                if (storeId == null) {
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Unknown store: " + storeName),
+                            null, null);
+                }
+                int workerId = MasterServer.hash(storeId);
+
+                CustomMessage workerMsg = new CustomMessage(
+                        "DecreaseProductAmount",
+                        new JSONObject()
+                                .put("restaurantId", storeId)
+                                .put("Product",        productName)
+                                .put("Amount",         delta),
+                        null,
+                        null
+                );
+                Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+                System.out.println("[DEBUG ClientHandler] Worker raw response: " + raw);
+
+                if (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
+                }
+            }
 
 
 
