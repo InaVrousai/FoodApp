@@ -12,7 +12,7 @@ public class MasterServer {
     // Global list of workers and MapReduce results (can later be replaced by a dedicated MapReduce object)
     protected static final List<WorkerInfo> workers = new ArrayList<>();
 
-    protected static final Map<String,Integer> storeNameToId = new ConcurrentHashMap<>();
+    protected static final Map<String,Integer> storeNameToId = new HashMap<>();
     //used for pending requests
     protected static final Map<Integer, Socket> socketMap = new HashMap<>();
 

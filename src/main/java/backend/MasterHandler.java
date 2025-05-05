@@ -27,7 +27,8 @@ public class MasterHandler implements Runnable {
 
                 CustomMessage request = (CustomMessage) received;
                 System.out.println("Received action: " + request.getAction());
-                System.out.println("Payload: " + request.getParameters().toString());
+                if(request.getParameters()!=null)
+                    System.out.println("Payload: " + request.getParameters().toString());
                 //call handle action that handles the request
                 handleAction(request,masterHandler);
                 //out.writeObject(response);

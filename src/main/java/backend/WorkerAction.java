@@ -9,6 +9,7 @@ import java.net.*;
 import java.util.ArrayList;
 
 import static backend.Worker.storesList;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 
@@ -100,7 +101,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                 }
                 //finds the product the manager refers to
                 store.removeProduct(message.getParameters().getString("Product"));
-                System.out.println("Product " + message.getParameters().getString("Store") + " removed from " + store.getStoreName());
+                System.out.println("Product " + message.getParameters().getString("Product") + " removed from " + store.getStoreName());
                 store.calculatePriceRange(); //recalculates price range
                 return new CustomMessage("ACK", null, null, null);
             }
@@ -187,7 +188,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                     //finds the product we want to decrease the amount
                     Product product1 = store.findProduct(message.getParameters().getString("Product"));
                     //if the amount we want to decrease is bigger than the curent amount we zero the available amount
-                    product1.setAvailableAmount(min(product1.getAvailableAmount() - amount1, 0));
+                    product1.setAvailableAmount(max(product1.getAvailableAmount() - amount1, 0));
                     //if the product amount drops to zero the product goes out of use
                     if (product1.getAvailableAmount() == 0)
                         product1.setProductInUse(false);
@@ -305,7 +306,9 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
 
                 int amount = productObject.getInt("Amount");
                 if (amount <= 0 || amount > product.getAvailableAmount()) {
-                    throw new Exception("The amount cannot be zero or less or bigger than the available amount ");
+                    return new CustomMessage("ERROR"
+                            ,new JSONObject().put("message", "The product available amount is: "+ + product.getAvailableAmount())
+                            ,null,null);
                 }
 
                 //Setting new available amount
@@ -387,9 +390,9 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
             //if the store doesn't much one filter returns null
             if (DistanceCalculator.calculateDistance(store.getLatitude(), store.getLongitude(), latitude, longitude) <= 5.0) {
                 if (store.getPriceRange().equals(priceRange) || priceRange.equals("-")) {
-                    if (store.getStars() == minStars || minStars == 0) {
+                    if (store.getStars() >= minStars || minStars == 0) {
                         if (categories.contains(store.getFoodCategory()) || categories.isEmpty()) {
-                            //Returns message with the josn
+                            //Returns message with the json
                             tempStoreList.add(store);//adds store to the storeList that the reducer will receive
                         }
                     }
@@ -409,23 +412,23 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
         for (Store store : stores) {
             //stores the name the id and the  products jsonArray
             JSONObject storeJson = new JSONObject();
-            storeJson.put("storeName", store.getStoreName());
-            storeJson.put("storeId", store.getId());
+            storeJson.put("StoreName", store.getStoreName());
 
             JSONArray productsArray = new JSONArray();
             for (Product product : store.getProductsList()) {
-                JSONObject productJson = new JSONObject();
-                productJson.put("productName", product.getProductName());
-                productJson.put("productType", product.getProductType());
-                productJson.put("availableAmount", product.getAvailableAmount());
-                productJson.put("price", product.getPrice());
-                productJson.put("totalSales", product.getTotalSales());
-                productJson.put("productInUse", product.isProductInUse());
+                //if product is in use show it to the client
+                if(product.isProductInUse()) {
+                    JSONObject productJson = new JSONObject();
+                    productJson.put("ProductName", product.getProductName());
+                    //productJson.put("productType", product.getProductType());
+                    productJson.put("AvailableAmount", product.getAvailableAmount());
+                    productJson.put("Price", product.getPrice());
 
-                productsArray.put(productJson);
+                    productsArray.put(productJson);
+                }
             }
 
-            storeJson.put("products", productsArray); // add product list to store object
+            storeJson.put("Products", productsArray); // add product list to store object
             storesJArray.put(storeJson);           // add store to master array
         }
         return storesJArray;

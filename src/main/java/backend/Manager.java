@@ -67,18 +67,18 @@ public class Manager {
 
                     System.out.println("Give product name");
                     String productName = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Give product type");
                     String productType = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Give product available amount");
                     productAmount = in.nextInt();
-                    in.nextLine();
+
                     while (productAmount < 0) {
                         System.out.println("Product available amount cannot be negative!!!");
                         System.out.println("Give new product available amount.");
                         productAmount = in.nextInt();
-                        in.nextLine();
+
                     }
 
                     System.out.println("Give product price");
@@ -87,7 +87,7 @@ public class Manager {
                         System.out.println("Product price amount cannot be negative!!!");
                         System.out.println("Give new product price.");
                         productPrice = in.nextDouble();
-                        in.nextLine();
+
                     }
                     //creates the new product
                     Product productN = new Product(productName, productType, productAmount, productPrice);
@@ -109,10 +109,10 @@ public class Manager {
                 case 3: {
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("And the name of the product: ");
                     product = in.nextLine();
-                    in.nextLine();
+
 
                     //filling up json
                     json = new JSONObject();
@@ -156,19 +156,19 @@ public class Manager {
                 {
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Please insert the name of the product: ");
                     product = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Please insert the amount of the product: ");
                     productAmount = in.nextInt();
-                    in.nextLine();
+
 
                     while (productAmount < 0) {
                         System.out.println("You can not increase product available amount with a negative number !!!");
                         System.out.println("Give new product available amount.");
                         productAmount = in.nextInt();
-                        in.nextLine();
+
                     }
 
                     //filling up json
@@ -195,19 +195,19 @@ public class Manager {
                 {
                     System.out.println("Please insert the name of the store: ");
                     store = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Please insert the name of the product: ");
                     product = in.nextLine();
-                    in.nextLine();
+
                     System.out.println("Please insert the amount of the product: ");
                     productAmount = in.nextInt();
-                    in.nextLine();
+
 
                     while (productAmount < 0) {
                         System.out.println("You cant decrease product available with a negative number!!!");
                         System.out.println("Give new product available amount.");
                         productAmount = in.nextInt();
-                        in.nextLine();
+
                     }
 
                     //filling up json
@@ -232,7 +232,7 @@ public class Manager {
                 case 7: {
                     System.out.println("Please insert the food category of the store: ");
                     foodCategory = in.nextLine();
-                    in.nextLine();
+
                     //filling up json
                     json = new JSONObject();
                     json.put("StoreFoodCategory", foodCategory);
@@ -269,7 +269,6 @@ public class Manager {
                 {
                     System.out.println("Please insert the product type: ");
                     product = in.nextLine();
-                    in.nextLine();
 
                     //filling up json
                     json = new JSONObject();

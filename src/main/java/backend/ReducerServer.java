@@ -102,7 +102,7 @@ public class ReducerServer implements Runnable{
                         intermediateResults.remove(mapID);
                         resultsCount.remove(mapID);
                     }
-                    lock.notify();//wakes up threads
+                    lock.notifyAll();//wakes up threads
                 }
             }
 

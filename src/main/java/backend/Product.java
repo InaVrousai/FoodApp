@@ -2,7 +2,9 @@ package backend;
 
 import org.json.JSONObject;
 
-public class Product {
+import java.io.Serializable;
+
+public class Product implements Serializable {
     private final String productName;
     private final String productType;
     private int availableAmount;
