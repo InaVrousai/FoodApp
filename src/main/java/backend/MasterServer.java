@@ -98,52 +98,52 @@ public class MasterServer {
         }
     }
 
-    private static void seedInitialStores() {
-        System.out.println("[Setup] Seeding initial stores…");
-        JasonParser parser = new JasonParser();
-
-        // 1) figure out where your JSON lives
-        String dataDir = System.getProperty("user.dir") + File.separator + "data";
-        File dir = new File(dataDir);
-        if (!dir.exists() || !dir.isDirectory()) {
-            System.err.println("[Setup] Data directory not found: " + dataDir);
-            return;
-        }
-
-        // 2) grab every .json file
-        File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
-        if (files == null || files.length == 0) {
-            System.err.println("[Setup] No JSON files found in: " + dataDir);
-            return;
-        }
-
-        // 3) load & send each store
-        for (File file : files) {
-            try {
-                System.out.println("[Setup] Loading store from: " + file.getName());
-                Store store = parser.jsonReader(file.getAbsolutePath());
-
-                // assign a new ID
-                int id = getNextRestaurantId();
-                store.setId(id);
-                storeNameToId.put(store.getStoreName(), id);
-
-                // forward to the hashed worker
-                int workerId = hash(id);
-                CustomMessage msg = new CustomMessage("AddStore", new JSONObject(), store, null);
-                Object resp = sendMessageExpectReply(msg, workerId);
-
-                if (resp instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
-                    System.out.println("[Setup] Added `" + store.getStoreName()
-                            + "` (ID=" + id + ") to worker " + workerId);
-                } else {
-                    System.err.println("[Setup] Failed to add `" + store.getStoreName() + "`");
-                }
-            } catch (Exception e) {
-                System.err.println("[Setup] Error reading " + file.getName() + ": " + e.getMessage());
-            }
-        }
-    }
+//    private static void seedInitialStores() {
+//        System.out.println("[Setup] Seeding initial stores…");
+//        JasonParser parser = new JasonParser();
+//
+//        // 1) figure out where your JSON lives
+//        String dataDir = System.getProperty("user.dir") + File.separator + "data";
+//        File dir = new File(dataDir);
+//        if (!dir.exists() || !dir.isDirectory()) {
+//            System.err.println("[Setup] Data directory not found: " + dataDir);
+//            return;
+//        }
+//
+//        // 2) grab every .json file
+//        File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
+//        if (files == null || files.length == 0) {
+//            System.err.println("[Setup] No JSON files found in: " + dataDir);
+//            return;
+//        }
+//
+//        // 3) load & send each store
+//        for (File file : files) {
+//            try {
+//                System.out.println("[Setup] Loading store from: " + file.getName());
+//                Store store = parser.jsonReader(file.getAbsolutePath());
+//
+//                // assign a new ID
+//                int id = getNextRestaurantId();
+//                store.setId(id);
+//                storeNameToId.put(store.getStoreName(), id);
+//
+//                // forward to the hashed worker
+//                int workerId = hash(id);
+//                CustomMessage msg = new CustomMessage("AddStore", new JSONObject(), store, null);
+//                Object resp = sendMessageExpectReply(msg, workerId);
+//
+//                if (resp instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+//                    System.out.println("[Setup] Added `" + store.getStoreName()
+//                            + "` (ID=" + id + ") to worker " + workerId);
+//                } else {
+//                    System.err.println("[Setup] Failed to add `" + store.getStoreName() + "`");
+//                }
+//            } catch (Exception e) {
+//                System.err.println("[Setup] Error reading " + file.getName() + ": " + e.getMessage());
+//            }
+//        }
+//    }
 
 
     public static void main(String[] args) {
@@ -171,26 +171,26 @@ public class MasterServer {
                 }
             }
 
-            seedInitialStores();
+            //seedInitialStores();
 
-            try (ServerSocket reducerSocket = new ServerSocket(6000)) {
-                System.out.println("MasterServer listening for reducer messages on port 6000...");
-                while (true) {
-                    // Accept connections from Reducer
-                    Socket reducerSocketClient = reducerSocket.accept();
-                    System.out.println("> Reducer connected: " + reducerSocketClient.getInetAddress().getHostAddress());
-
-                    // Handle the reducer's message in a separate thread using MasterHandler or custom logic
-                    new Thread(() -> {
-                        // Handle reducer messages in a separate thread
-                        MasterHandler reducerHandler = new MasterHandler(reducerSocketClient);
-                        new Thread(reducerHandler).start();
-                    }).start();
-                }
-
-            } catch (IOException e) {
-                System.err.println("Error in reducer listener: " + e.getMessage());
-            }
+//            try (ServerSocket reducerSocket = new ServerSocket(6000)) {
+//                System.out.println("MasterServer listening for reducer messages on port 6000...");
+//                while (true) {
+//                    // Accept connections from Reducer
+//                    Socket reducerSocketClient = reducerSocket.accept();
+//                    System.out.println("> Reducer connected: " + reducerSocketClient.getInetAddress().getHostAddress());
+//
+//                    // Handle the reducer's message in a separate thread using MasterHandler or custom logic
+//                    new Thread(() -> {
+//                        // Handle reducer messages in a separate thread
+//                        MasterHandler reducerHandler = new MasterHandler(reducerSocketClient);
+//                        new Thread(reducerHandler).start();
+//                    }).start();
+//                }
+//
+//            } catch (IOException e) {
+//                System.err.println("Error in reducer listener: " + e.getMessage());
+            //}
 
 
             while (true) {

@@ -56,13 +56,13 @@ public class WorkerAction implements Runnable {
             }
         }
     }
-WorkerInfo worker = new WorkerInfo(45,null,5000);
+//WorkerInfo worker = new WorkerInfo(45,null,5000);
 
     private CustomMessage handleAction(CustomMessage message) throws Exception {
 
         switch (message.getAction()) {
             // === MANAGER COMMANDS ==
-            case "AddStore":// μηπως να το μετακινησουμε στον worker αυτο
+            case "AddStore":
             {
                 Store store = message.getStore();
                 System.out.println("Store added: " + store.getStoreName());
@@ -70,7 +70,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                 // 4) Store in memory
                 storesList.add(store);
                 Worker.storeMap.put(store.getId(), store);
-                return new CustomMessage("ACK", null, null, null);
+                return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
             case "AddProduct": {
@@ -85,10 +85,10 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                 }
                 //adds the product to the store
                 store.addProduct(message.getProduct());
-                System.out.println("Product " + message.getProduct() + " added to " + message.getStore().getStoreName());
+
                 //recalculates price range
                 store.calculatePriceRange();
-                return new CustomMessage("ACK", null, null, null);
+                return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
             case "RemoveProduct": {
@@ -99,11 +99,17 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                             new JSONObject().put("message", "Store ID " + storeId + " not found"),
                             null, null);
                 }
-                //finds the product the manager refers to
-                store.removeProduct(message.getParameters().getString("Product"));
-                System.out.println("Product " + message.getParameters().getString("Product") + " removed from " + store.getStoreName());
-                store.calculatePriceRange(); //recalculates price range
-                return new CustomMessage("ACK", null, null, null);
+                String productName = message.getParameters().getString("Product");
+                ArrayList<Product> products = store.getProductsList();
+                boolean removed = products.removeIf(p -> p.getProductName().equals(productName));
+
+                if (!removed) {
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Product " + productName + " not found in store ID " + storeId),
+                            null, null);
+                }
+                store.calculatePriceRange();
+                return new CustomMessage("ACK", new JSONObject(), null, null);
             }
             case "TotalSales": {
 
@@ -157,7 +163,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                     store.storeInUse = false; // Release store usage
                     store.notifyAll(); // wakes up other threads that are waiting for the store
                 }
-                return new CustomMessage("ACK", null, null, null);
+                return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
             case "DecreaseProductAmount": {
@@ -196,7 +202,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                     store.storeInUse = false; // Release store usage
                     store.notifyAll(); // wakes up other threads that are waiting for the store
                 }
-                    return new CustomMessage("ACK", null, null, null);
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
             case "TotalSalesProductType": {
@@ -227,7 +233,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                     mapJson.put("IntermediateData",storesAnswers);
 
                 sendToReducer(new CustomMessage(message.getAction(), mapJson, null, null)); //sends message to the reducer
-                return new CustomMessage("ACK",null,null,null);
+                return new CustomMessage("ACK",new JSONObject(),null,null);
 
             }
 
@@ -252,7 +258,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                 mapJson.put("IntermediateData",storesAnswers);
 
                 sendToReducer(new CustomMessage(message.getAction(), mapJson, null, null)); //sends message to the reducer
-                return new CustomMessage("ACK",null,null,null);
+                return new CustomMessage("ACK",new JSONObject(),null,null);
 
             }
                 //=====Client Commands=====
@@ -266,7 +272,7 @@ WorkerInfo worker = new WorkerInfo(45,null,5000);
                 return rate(message);
 
             default:
-                return new CustomMessage("NACK", null,null,null);
+                return new CustomMessage("NACK", new JSONObject(),null,null);
         }
 
     }

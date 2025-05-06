@@ -63,45 +63,56 @@ public class Manager {
                 case 2: {
                     System.out.println("Please insert the name of the store:");
                     store = in.nextLine();
-                    in.nextLine();
+                    //in.nextLine();
 
                     System.out.println("Give product name");
                     String productName = in.nextLine();
-
+                    //in.nextLine();
                     System.out.println("Give product type");
                     String productType = in.nextLine();
-
+                    //in.nextLine();
                     System.out.println("Give product available amount");
                     productAmount = in.nextInt();
-
-                    while (productAmount < 0) {
+                    in.nextLine();
+                    while(productAmount < 0) {
                         System.out.println("Product available amount cannot be negative!!!");
-                        System.out.println("Give new product available amount.");
+                        System.out.println("Give new roduct available amount.");
                         productAmount = in.nextInt();
-
+                        in.nextLine();
                     }
 
-                    System.out.println("Give product price");
-                    double productPrice = in.nextDouble();
-                    while (productPrice < 0) {
-                        System.out.println("Product price amount cannot be negative!!!");
-                        System.out.println("Give new product price.");
-                        productPrice = in.nextDouble();
-
+                    double productPrice;
+                    while (true) {
+                        System.out.println("Give product price");
+                        String priceToken = in.nextLine();
+                        try {
+                            productPrice = Double.parseDouble(priceToken);
+                            if (productPrice < 0) {
+                                System.out.println("Price cannot be negative!");
+                            } else {
+                                break;  // good value
+                            }
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid decimal. Please enter a number like 7.00");
+                        }
                     }
+
                     //creates the new product
-                    Product productN = new Product(productName, productType, productAmount, productPrice);
-                    JSONObject jsonStore = new JSONObject();
-                    jsonStore.put("StoreName", store);  // Adds store name
+                    Product productN = new Product(productName,productType,productAmount,productPrice);
                     //adds the message type and product in the message
-                    message = new CustomMessage("AddProduct", jsonStore, null, productN);
+                    // message = new CustomMessage("AddProduct", null,null,productN);
+
+                    JSONObject payload = new JSONObject();
+                    payload.put("StoreName", store);
+                    // send the store name + product object\
+                    message = new CustomMessage("AddProduct", payload, null, productN);
 
                     //Sends a request to the Master
                     serverResponse = managerRequest.sendRequest(message);
                     //handles master response
-                    if (serverResponse.getAction().equals("ACK")) {
+                    if(serverResponse.getAction().equals("ACK")) {
                         System.out.println("The product was added successfully");
-                    } else {
+                    }else{
                         System.out.println("Error product not added ");
                     }
                     break;
@@ -116,7 +127,7 @@ public class Manager {
 
                     //filling up json
                     json = new JSONObject();
-                    json.put("StoreName", store);
+                    json.put("Store", store);
                     json.put("Product", product);
 
 

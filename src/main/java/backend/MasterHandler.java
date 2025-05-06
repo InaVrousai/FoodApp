@@ -4,20 +4,20 @@ import java.io.*;
 import java.net.Socket;
 
 public class MasterHandler implements Runnable {
-    private final Socket masterHandler;
+    private final Socket clientSocket;
+    private boolean running = true;
 
-
-    public MasterHandler(Socket masterHandler) {
-        this.masterHandler = masterHandler;
+    public MasterHandler(Socket clientSocket) {
+        this.clientSocket = clientSocket;
     }
 
     @Override
     public void run() {
         try (
-                ObjectOutputStream out = new ObjectOutputStream(masterHandler.getOutputStream());
+                ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
         ) {
             out.flush();  // ensure header is sent
-            try (ObjectInputStream in = new ObjectInputStream(masterHandler.getInputStream())) {
+            try (ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream())) {
                 Object received = in.readObject();
                 if (!(received instanceof CustomMessage)) {
                     out.writeObject(new CustomMessage("error",
@@ -27,15 +27,14 @@ public class MasterHandler implements Runnable {
 
                 CustomMessage request = (CustomMessage) received;
                 System.out.println("Received action: " + request.getAction());
-                if(request.getParameters()!=null)
-                    System.out.println("Payload: " + request.getParameters().toString());
-                //call handle action that handles the request
-                handleAction(request,masterHandler);
-                //out.writeObject(response);
+                System.out.println("Payload: " + request.getParameters().toString());
+
+                CustomMessage response = handleAction(request);
+                out.writeObject(response);
             }
-        } catch (Exception e) {
+        } catch (IOException | ClassNotFoundException e) {
             System.err.println("Error handling client: " + e.getMessage());
-            try (ObjectOutputStream out = new ObjectOutputStream(masterHandler.getOutputStream())) {
+            try (ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream())) {
                 out.writeObject(new CustomMessage("error",
                         new JSONObject().put("message", "Server error: " + e.getMessage()),null, null));
             } catch (IOException ex) {
@@ -44,44 +43,51 @@ public class MasterHandler implements Runnable {
         } finally {
             try {
                 System.out.println("Closing client connection.");
-                masterHandler.close();
+                clientSocket.close();
             } catch (IOException e) {
                 System.err.println("Failed to close client socket: " + e.getMessage());
             }
         }
     }
 
-    private void handleAction(CustomMessage msg,Socket socket ) throws Exception {
+    private CustomMessage handleAction(CustomMessage msg) {
         String action = msg.getAction();
         JSONObject params = msg.getParameters();
 
+
         switch (action) {
             case "AddStore": {
-                // fetch the Store object from the message
+                // 1) fetch the Store object from the message
                 Store store = msg.getStore();
                 String storeName = store.getStoreName();
 
-                // assign a new ID and set on the Store
+                // 2) assign a new ID and set on the Store
                 int storeId = MasterServer.getNextRestaurantId();
                 store.setId(storeId);
 
                 MasterServer.storeNameToId.put(storeName, storeId);
 
-                // select worker via consistent hashing
+                // 3) select worker via consistent hashing
                 int workerId = MasterServer.hash(storeId);
 
-                // forward to the chosen worker
-                CustomMessage workerMsg = new CustomMessage("AddStore",null, store, null
+                // 4) forward to the chosen worker
+                CustomMessage workerMsg = new CustomMessage(
+                        "AddStore",
+                        new JSONObject(),
+                        store,
+                        null
                 );
-                CustomMessage workerResponse = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+                Object rawResp = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(workerResponse);
+                // 5) reply ACK or ERROR back to manager
+                if (rawResp instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
                 }
-                break;
             }
             case "AddProduct":{
-                // extract store name
+                // 1) extract
                 String storeName = msg.getParameters().getString("StoreName");
                 Product prod = msg.getProduct();
 
@@ -89,282 +95,291 @@ public class MasterHandler implements Runnable {
                 Integer storeId = MasterServer.storeNameToId.get(storeName);
 
                 if (storeId == null) {
-                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                        out.writeObject(new CustomMessage("ERROR",
-                                new JSONObject().put("message", "Unknown store: " + storeName),
-                                null, null));
-                    }
-                    break;
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Unknown store: " + storeName),
+                            null, null);
                 }
-                //find store id using the hash
                 int workerId = MasterServer.hash(storeId);
 
                 CustomMessage workerMsg = new CustomMessage("AddProduct",
                         new JSONObject().put("restaurantId", storeId),
                         null,
                         msg.getProduct());
-                CustomMessage cstMessage = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+                Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(cstMessage);
-                }
-                break;
+                // ACK or ERROR
+                String reply = (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction()))
+                        ? "ACK" : "ERROR";
+                return new CustomMessage(reply, new JSONObject(), null, null);
             }
+
             case "RemoveProduct": {
-                // extract store name
-                String storeName = msg.getParameters().getString("StoreName");
-                Product prod = msg.getProduct();
+                System.out.println("[DEBUG] Known stores: " + MasterServer.storeNameToId.keySet());
+                // 1) pull store name & product name from the incoming JSON
+                String storeName   = params.getString("Store");
+                String productName = params.getString("Product");
 
-                // 2) look up the storeId
+                // 2) look up the storeId (as you do for AddProduct)
                 Integer storeId = MasterServer.storeNameToId.get(storeName);
-
                 if (storeId == null) {
-                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                        out.writeObject(new CustomMessage("ERROR",
-                                new JSONObject().put("message", "Unknown store: " + storeName),
-                                null, null));
-                    }
-                    break;
+                    return new CustomMessage(
+                            "ERROR",
+                            new JSONObject().put("message", "Unknown store: " + storeName),
+                            null,
+                            null
+                    );
                 }
-                //stores the restaurantID in the existent json
-                params.put("restaurantId",storeId);
-                // pick the worker
-                int workerId = MasterServer.hash(storeId);
-                CustomMessage cstMessage = new CustomMessage("RemoveProduct",params, null, null
-                );
 
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(cstMessage);
+                // 3) pick the worker by consistent hashing & forward
+                int workerId = MasterServer.hash(storeId);
+                CustomMessage workerMsg = new CustomMessage(
+                        "RemoveProduct",
+                        new JSONObject()
+                                .put("restaurantId", storeId)
+                                .put("Product",       productName),
+                        null,
+                        null
+                );
+                Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+
+
+                // 4) return ACK or ERROR back to the manager
+                if (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
                 }
-                break;
             }
             case "IncreaseProductAmount": {
-                // extract store name
-                String storeName = msg.getParameters().getString("StoreName");
-                Product prod = msg.getProduct();
+                System.out.println("[DEBUG ClientHandler] IncreaseProductAmount params: " + params);
+                // 1) extract
+                String storeName = params.getString("Store");
+                String productName = params.getString("Product");
+                int delta = params.getInt("Amount");
 
-                // 2) look up the storeId
+                // 2) lookup
                 Integer storeId = MasterServer.storeNameToId.get(storeName);
-
                 if (storeId == null) {
-                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                        out.writeObject(new CustomMessage("ERROR",
-                                new JSONObject().put("message", "Unknown store: " + storeName),
-                                null, null));
-                    }
-                    break;
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Unknown store: " + storeName),
+                            null, null);
                 }
-                //stores the restaurantID in the existent json
-                params.put("restaurantId", storeId);
-                // pick the worker
                 int workerId = MasterServer.hash(storeId);
-                CustomMessage workerMsg = new CustomMessage("IncreaseProductAmount", params, null, null
+
+                // 3) forward
+                CustomMessage workerMsg = new CustomMessage(
+                        "IncreaseProductAmount",
+                        new JSONObject()
+                                .put("restaurantId", storeId)
+                                .put("Product",        productName)
+                                .put("Amount",         delta),
+                        null,
+                        null
                 );
-                Object cstMessage = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+                Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
-
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(cstMessage);
+                // 4) return
+                if (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
                 }
-                break;
             }
+
             case "DecreaseProductAmount": {
-                // extract store name
-                String storeName = msg.getParameters().getString("StoreName");
-                Product prod = msg.getProduct();
+                // mirror of Increase but subtract
+                String storeName = params.getString("Store");
+                String productName = params.getString("Product");
+                int delta = params.getInt("Amount");
 
-                // 2) look up the storeId
                 Integer storeId = MasterServer.storeNameToId.get(storeName);
-
                 if (storeId == null) {
-                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                        out.writeObject(new CustomMessage("ERROR",
-                                new JSONObject().put("message", "Unknown store: " + storeName),
-                                null, null));
-                    }
-                    break;
+                    return new CustomMessage("ERROR",
+                            new JSONObject().put("message", "Unknown store: " + storeName),
+                            null, null);
                 }
-                //stores the restaurantID in the existent json
-                params.put("restaurantId", storeId);
-                // pick the worker
                 int workerId = MasterServer.hash(storeId);
-                CustomMessage workerMsg = new CustomMessage("DecreaseProductAmount", params, null, null
+
+                CustomMessage workerMsg = new CustomMessage(
+                        "DecreaseProductAmount",
+                        new JSONObject()
+                                .put("restaurantId", storeId)
+                                .put("Product",        productName)
+                                .put("Amount",         delta),
+                        null,
+                        null
                 );
-                CustomMessage cstMessage = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+                Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+                System.out.println("[DEBUG ClientHandler] Worker raw response: " + raw);
 
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(cstMessage);
+                if (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    return new CustomMessage("ACK", new JSONObject(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
                 }
-                break;
-
             }
-            case "TotalSales": {
-                // extract store name
-                String storeName = msg.getParameters().getString("StoreName");
-                Product prod = msg.getProduct();
+//            case "TotalSales": {
+//                // extract store name
+//                String storeName = msg.getParameters().getString("StoreName");
+//                Product prod = msg.getProduct();
+//
+//                // 2) look up the storeId
+//                Integer storeId = MasterServer.storeNameToId.get(storeName);
+//
+//                if (storeId == null) {
+//                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+//                        out.writeObject(new CustomMessage("ERROR",
+//                                new JSONObject().put("message", "Unknown store: " + storeName),
+//                                null, null));
+//                    }
+//                    break;
+//                }
+//                //stores the restaurantID in the existent json
+//                params.put("restaurantId", storeId);
+//                // pick the worker
+//                int workerId = MasterServer.hash(storeId);
+//                CustomMessage workerMsg = new CustomMessage("TotalSales", params, null, null
+//                );
+//
+//                CustomMessage cstMessage = MasterServer.sendMessageExpectReply(workerMsg, workerId);
+//
+//                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+//                    out.writeObject(cstMessage);
+//                }
+//                break;
+//
+//            }
+//            //cases that handle reduce messages requests
+//            case "TotalSalesProductType":{
+//                // assign a new mapID and insert it to the jason
+//                int mapID = MasterServer.getNextMapId();
+//                params.put("MapID",mapID);
+//                //locking socket map to prevent race conditions
+//                synchronized (MasterServer.socketMapLock){
+//                    MasterServer.socketMap.put(mapID,socket);
+//                }
+//                //broadcasts the message to the workers
+//                MasterServer.broadcastMessageToWorkers(new CustomMessage("TotalSalesProductType",params,null,null));
+//                break;
+//            }
+//            case "TotalSalesStoreCategory":{
+//                // assign a new mapID and insert it to the jason
+//                int mapID = MasterServer.getNextMapId();
+//                params.put("MapID",mapID);
+//                //locking socket map to prevent race conditions
+//                synchronized (MasterServer.socketMapLock){
+//                    MasterServer.socketMap.put(mapID,socket);
+//                }
+//                //broadcasts the message to the workers
+//                MasterServer.broadcastMessageToWorkers(new CustomMessage("TotalSalesStoreCategory",params,null,null));
+//                break;
+//            }
+//
+//            case "Search":{
+//                // assign a new mapID and insert it to the jason
+//                int mapID = MasterServer.getNextMapId();
+//                params.put("MapID",mapID);
+//                //locking socket map to prevent race conditions
+//                synchronized (MasterServer.socketMapLock){
+//                    MasterServer.socketMap.put(mapID,socket);
+//                }
+//                //broadcasts the message to the workers
+//                MasterServer.broadcastMessageToWorkers(new CustomMessage("Search",params,null,null));
+//                break;
+//            }
+//            case "Buy":{
+//                String storeName = msg.getParameters().getString("StoreName");
+//                // look up the storeId
+//                Integer storeId = MasterServer.storeNameToId.get(storeName);
+//
+//
+//                if (storeId == null) {
+//                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+//                        out.writeObject(new CustomMessage("ERROR",
+//                                new JSONObject().put("message", "Unknown store: " + storeName),
+//                                null, null));
+//                    }
+//                    break;
+//                }
+//                //stores the restaurantID in the existent json
+//                params.put("restaurantId",storeId);
+//                // pick the worker
+//                int workerId = MasterServer.hash(storeId);
+//                CustomMessage workerMsg = new CustomMessage("Buy",params, null, null
+//                );
+//                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+//                    out.writeObject(workerMsg);
+//                }
+//                break;
+//
+//            }
+//            case "Rate": {
+//                //get store name from json
+//                String storeName = msg.getParameters().getString("StoreName");
+//                // look up the storeId
+//                Integer storeId = MasterServer.storeNameToId.get(storeName);
+//
+//                if (storeId == null) {
+//                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+//                        out.writeObject(new CustomMessage("ERROR",
+//                                new JSONObject().put("message", "Unknown store: " + storeName),
+//                                null, null));
+//                    }
+//                    break;
+//                }
+//                //stores the restaurantID in the existent json
+//                params.put("restaurantId",storeId);
+//                // pick the worker
+//                int workerId = MasterServer.hash(storeId);
+//                CustomMessage workerMsg = new CustomMessage("Rate",params, null, null
+//                );
+//                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+//                    out.writeObject(workerMsg);
+//                }
+//                break;
+//            }
+//            //cases that handle reduced messages
+//            case "ReducedSearch":{
+//                Socket socketClient;
+//                //locking socket map to prevent race conditions
+//                synchronized (MasterServer.socketMapLock){
+//                    socketClient = MasterServer.socketMap.get(params.getInt("MapID"));
+//                    // Clean up data structures for this MapID
+//                    MasterServer.socketMap.remove(params.getInt("MapID"));
+//                }
+//                if (socketClient == null) {
+//                    System.err.println("MapID not found or socket already removed: " + params.getInt("MapID"));
+//                    break; // Cannot respond, so we just exit the case
+//                }
+//
+//                try(ObjectOutputStream out = new ObjectOutputStream(socketClient.getOutputStream())) {
+//                    out.writeObject(msg);
+//               }
+//                break;
+//
+//            }case"ReducedTotalSales": {
+//                Socket managerSocket;
+//                //locking socket map to prevent race conditions
+//                synchronized (MasterServer.socketMapLock) {
+//                    managerSocket = MasterServer.socketMap.get(params.getInt("MapID"));
+//                    // Clean up data structures for this MapID
+//                    MasterServer.socketMap.remove(params.getInt("MapID"));
+//                }
+//                //if socket is null
+//                if (managerSocket == null) {
+//                    System.err.println("MapID not found or socket already removed: " + params.getInt("MapID"));
+//                    break; // Cannot respond, so we just exit the case
+//                    }
+//
+//                    try (ObjectOutputStream out = new ObjectOutputStream(managerSocket.getOutputStream())) {
+//                        out.writeObject(msg);
+//                    }
+//                    break;}
 
-                // 2) look up the storeId
-                Integer storeId = MasterServer.storeNameToId.get(storeName);
-
-                if (storeId == null) {
-                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                        out.writeObject(new CustomMessage("ERROR",
-                                new JSONObject().put("message", "Unknown store: " + storeName),
-                                null, null));
-                    }
-                    break;
-                }
-                //stores the restaurantID in the existent json
-                params.put("restaurantId", storeId);
-                // pick the worker
-                int workerId = MasterServer.hash(storeId);
-                CustomMessage workerMsg = new CustomMessage("TotalSales", params, null, null
-                );
-
-                CustomMessage cstMessage = MasterServer.sendMessageExpectReply(workerMsg, workerId);
-
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(cstMessage);
-                }
-                break;
-
-            }
-            //cases that handle reduce messages requests
-            case "TotalSalesProductType":{
-                // assign a new mapID and insert it to the jason
-                int mapID = MasterServer.getNextMapId();
-                params.put("MapID",mapID);
-                //locking socket map to prevent race conditions
-                synchronized (MasterServer.socketMapLock){
-                    MasterServer.socketMap.put(mapID,socket);
-                }
-                //broadcasts the message to the workers
-                MasterServer.broadcastMessageToWorkers(new CustomMessage("TotalSalesProductType",params,null,null));
-                break;
-            }
-            case "TotalSalesStoreCategory":{
-                // assign a new mapID and insert it to the jason
-                int mapID = MasterServer.getNextMapId();
-                params.put("MapID",mapID);
-                //locking socket map to prevent race conditions
-                synchronized (MasterServer.socketMapLock){
-                    MasterServer.socketMap.put(mapID,socket);
-                }
-                //broadcasts the message to the workers
-                MasterServer.broadcastMessageToWorkers(new CustomMessage("TotalSalesStoreCategory",params,null,null));
-                break;
-            }
-
-            case "Search":{
-                // assign a new mapID and insert it to the jason
-                int mapID = MasterServer.getNextMapId();
-                params.put("MapID",mapID);
-                //locking socket map to prevent race conditions
-                synchronized (MasterServer.socketMapLock){
-                    MasterServer.socketMap.put(mapID,socket);
-                }
-                //broadcasts the message to the workers
-                MasterServer.broadcastMessageToWorkers(new CustomMessage("Search",params,null,null));
-                break;
-            }
-            case "Buy":{
-                String storeName = msg.getParameters().getString("StoreName");
-                // look up the storeId
-                Integer storeId = MasterServer.storeNameToId.get(storeName);
-
-
-                if (storeId == null) {
-                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                        out.writeObject(new CustomMessage("ERROR",
-                                new JSONObject().put("message", "Unknown store: " + storeName),
-                                null, null));
-                    }
-                    break;
-                }
-                //stores the restaurantID in the existent json
-                params.put("restaurantId",storeId);
-                // pick the worker
-                int workerId = MasterServer.hash(storeId);
-                CustomMessage workerMsg = new CustomMessage("Buy",params, null, null
-                );
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(workerMsg);
-                }
-                break;
-
-            }
-            case "Rate": {
-                //get store name from json
-                String storeName = msg.getParameters().getString("StoreName");
-                // look up the storeId
-                Integer storeId = MasterServer.storeNameToId.get(storeName);
-
-                if (storeId == null) {
-                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                        out.writeObject(new CustomMessage("ERROR",
-                                new JSONObject().put("message", "Unknown store: " + storeName),
-                                null, null));
-                    }
-                    break;
-                }
-                //stores the restaurantID in the existent json
-                params.put("restaurantId",storeId);
-                // pick the worker
-                int workerId = MasterServer.hash(storeId);
-                CustomMessage workerMsg = new CustomMessage("Rate",params, null, null
-                );
-                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(workerMsg);
-                }
-                break;
-            }
-            //cases that handle reduced messages
-            case "ReducedSearch":{
-                Socket socketClient;
-                //locking socket map to prevent race conditions
-                synchronized (MasterServer.socketMapLock){
-                    socketClient = MasterServer.socketMap.get(params.getInt("MapID"));
-                    // Clean up data structures for this MapID
-                    MasterServer.socketMap.remove(params.getInt("MapID"));
-                }
-                if (socketClient == null) {
-                    System.err.println("MapID not found or socket already removed: " + params.getInt("MapID"));
-                    break; // Cannot respond, so we just exit the case
-                }
-
-                try(ObjectOutputStream out = new ObjectOutputStream(socketClient.getOutputStream())) {
-                    out.writeObject(msg);
-               }
-                break;
-
-            }case"ReducedTotalSales": {
-                Socket managerSocket;
-                //locking socket map to prevent race conditions
-                synchronized (MasterServer.socketMapLock) {
-                    managerSocket = MasterServer.socketMap.get(params.getInt("MapID"));
-                    // Clean up data structures for this MapID
-                    MasterServer.socketMap.remove(params.getInt("MapID"));
-                }
-                //if socket is null
-                if (managerSocket == null) {
-                    System.err.println("MapID not found or socket already removed: " + params.getInt("MapID"));
-                    break; // Cannot respond, so we just exit the case
-                    }
-
-                    try (ObjectOutputStream out = new ObjectOutputStream(managerSocket.getOutputStream())) {
-                        out.writeObject(msg);
-                    }
-                    break;
-
-            }default: {
-                try (ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-                    out.writeObject(new CustomMessage(
-                            "ERROR",
-                            new JSONObject().put("message", "Unknown action: " + action),
-                            null,
-                            null));
-                }
-                break;
+        default: {
+                return new CustomMessage("ERROR",
+                        new JSONObject().put("message", "Unknown action: " + action),
+                        null, null);
             }
         }
     }
