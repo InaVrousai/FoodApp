@@ -32,7 +32,7 @@ public class Manager {
             System.out.println("3. Remove Product from a Store");
             System.out.println("4. View Total Sales of products");
             System.out.println("5. Increase Product amount from a Store");
-            System.out.println("6. Remove Product amount from a Store");
+            System.out.println("6. Decrease Product amount from a Store");
             System.out.println("7. View Total Sales of a specific store type");
             System.out.println("8. View Total Sales of a specific product type");
             System.out.println("9. Exit");
@@ -184,7 +184,7 @@ public class Manager {
 
                     //filling up json
                     json = new JSONObject();
-                    json.put("StoreName", store);
+                    json.put("Store", store);
                     json.put("Product", product);
                     json.put("Amount", productAmount);
 
@@ -223,7 +223,7 @@ public class Manager {
 
                     //filling up json
                     json = new JSONObject();
-                    json.put("StoreName", store);
+                    json.put("Store", store);
                     json.put("Product", product);
                     json.put("Amount", productAmount);
 

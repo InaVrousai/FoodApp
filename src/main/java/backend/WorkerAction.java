@@ -111,6 +111,45 @@ public class WorkerAction implements Runnable {
                 store.calculatePriceRange();
                 return new CustomMessage("ACK", new JSONObject(), null, null);
             }
+//            case "IncreaseProductAmount": {
+//                int storeId   = message.getParameters().getInt("restaurantId");
+//                String name   = message.getParameters().getString("Product").trim();
+//                int delta     = message.getParameters().getInt("Amount");
+//                Store store   = Worker.storeMap.get(storeId);
+//
+//                System.out.printf("[DEBUG] IncAmt store=%d product=\"%s\" delta=%d%n", storeId, name, delta);
+//                System.out.println("[DEBUG] Before update, products:");
+//                for (Product p : store.getProductsList()) {
+//                    System.out.printf("    • \"%s\": avail=%d%n",
+//                            p.getProductName(), p.getAvailableAmount());
+//                }
+//
+//                boolean found = false;
+//                for (Product p : store.getProductsList()) {
+//                    if (p.getProductName().trim().equalsIgnoreCase(name)) {
+//                        p.setAvailableAmount(p.getAvailableAmount() + delta);
+//                        found = true;
+//                        break;
+//                    }
+//                }
+//
+//                if (!found) {
+//                    System.err.println("[DEBUG] Product not found: " + name);
+//                    return new CustomMessage("ERROR",
+//                            new JSONObject().put("message", "Product " + name + " not found"), null, null);
+//                }
+//
+//                System.out.println("[DEBUG] After update, new avail:");
+//                for (Product p : store.getProductsList()) {
+//                    if (p.getProductName().trim().equalsIgnoreCase(name)) {
+//                        System.out.printf("    • \"%s\": avail=%d%n",
+//                                p.getProductName(), p.getAvailableAmount());
+//                    }
+//                }
+//
+//                store.calculatePriceRange();
+//                return new CustomMessage("ACK", new JSONObject(), null, null);
+//            }
             case "TotalSales": {
 
                 int storeId = message.getParameters().getInt("restaurantId");
@@ -159,6 +198,8 @@ public class WorkerAction implements Runnable {
                     //sets product in use in case the product ammount was zero so it was not in use
                     product.setProductInUse(true);
                     product.setAvailableAmount(product.getAvailableAmount() + amount);
+
+                    System.out.println("Product amount increased: " + product.getProductName() + " to " + product.getAvailableAmount());
 
                     store.storeInUse = false; // Release store usage
                     store.notifyAll(); // wakes up other threads that are waiting for the store
