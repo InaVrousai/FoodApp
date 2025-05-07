@@ -218,49 +218,46 @@ public class MasterHandler implements Runnable {
                     return new CustomMessage("ERROR", new JSONObject(), null, null);
                 }
             }
-//            case "TotalSales": {
-//                // extract store name
-//                String storeName = msg.getParameters().getString("StoreName");
-//                Product prod = msg.getProduct();
-//
-//                // 2) look up the storeId
-//                Integer storeId = MasterServer.storeNameToId.get(storeName);
-//
-//                if (storeId == null) {
-//                    try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-//                        out.writeObject(new CustomMessage("ERROR",
-//                                new JSONObject().put("message", "Unknown store: " + storeName),
-//                                null, null));
-//                    }
-//                    break;
-//                }
-//                //stores the restaurantID in the existent json
-//                params.put("restaurantId", storeId);
-//                // pick the worker
-//                int workerId = MasterServer.hash(storeId);
-//                CustomMessage workerMsg = new CustomMessage("TotalSales", params, null, null
-//                );
-//
-//                CustomMessage cstMessage = MasterServer.sendMessageExpectReply(workerMsg, workerId);
-//
-//                try(ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
-//                    out.writeObject(cstMessage);
-//                }
-//                break;
-//
-//            }
+           case "TotalSales": {
+                String storeName = params.getString("StoreName");
+                Integer storeId = MasterServer.storeNameToId.get(storeName);
+                if (storeId == null) {
+                    return new CustomMessage("ERROR",
+                        new JSONObject().put("message","Unknown store: "+storeName),
+                        null, null
+                    );
+                }
+                int wid = MasterServer.hash(storeId);
+                params.put("restaurantId", storeId);
+                CustomMessage wm = new CustomMessage("TotalSales", params, null, null);
+                Object raw = MasterServer.sendMessageExpectReply(wm, wid);
+
+                if (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                    // forward the JSON body of the ACK
+                    return new CustomMessage("ACK", cm.getParameters(), null, null);
+                } else {
+                    return new CustomMessage("ERROR", new JSONObject(), null, null);
+                }
+            }
 //            //cases that handle reduce messages requests
-//            case "TotalSalesProductType":{
-//                // assign a new mapID and insert it to the jason
-//                int mapID = MasterServer.getNextMapId();
-//                params.put("MapID",mapID);
-//                //locking socket map to prevent race conditions
-//                synchronized (MasterServer.socketMapLock){
-//                    MasterServer.socketMap.put(mapID,socket);
-//                }
-//                //broadcasts the message to the workers
-//                MasterServer.broadcastMessageToWorkers(new CustomMessage("TotalSalesProductType",params,null,null));
-//                break;
+            case "TotalSalesProductType": {
+                // assign MapID
+                int mapId = MasterServer.getNextMapId();
+                params.put("MapID", mapId);
+
+                // stow away this client socket for the ReducerHandler later
+                synchronized (MasterServer.socketMapLock) {
+                    MasterServer.socketMap.put(mapId, clientSocket);
+                }
+
+                // broadcast to all workers
+                MasterServer.broadcastMessageToWorkers(
+                        new CustomMessage(action, params, null, null)
+                );
+
+                // immediately ACK (the real reply will come back via MasterReducerHandler)
+                return new CustomMessage("ACK", new JSONObject().put("MapID", mapId), null, null);
+            }
 //            }
 //            case "TotalSalesStoreCategory":{
 //                // assign a new mapID and insert it to the jason

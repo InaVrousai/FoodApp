@@ -32,7 +32,7 @@ public class ReducerServer implements Runnable{
             try (Socket masterInitSocket = serverSocket.accept();
                  DataInputStream in = new DataInputStream(masterInitSocket.getInputStream())) {
 
-                numberOfWorkers = Integer.parseInt(in.readUTF());
+                numberOfWorkers = in.readInt();
                 System.out.println("Reducer received numberOfWorkers: " + numberOfWorkers);
             }
 

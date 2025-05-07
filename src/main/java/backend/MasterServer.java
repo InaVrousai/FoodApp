@@ -171,27 +171,29 @@ public class MasterServer {
                 }
             }
 
-            //seedInitialStores();
+            // 2) Handshake with Reducer
+            try (Socket reducerSock = new Socket("localhost", 6000);
+                 DataOutputStream out = new DataOutputStream(reducerSock.getOutputStream())) {
+                out.writeInt(numOfWorkers);
+                // <-- use writeUTF
+                out.flush();
+            }
 
-//            try (ServerSocket reducerSocket = new ServerSocket(6000)) {
-//                System.out.println("MasterServer listening for reducer messages on port 6000...");
-//                while (true) {
-//                    // Accept connections from Reducer
-//                    Socket reducerSocketClient = reducerSocket.accept();
-//                    System.out.println("> Reducer connected: " + reducerSocketClient.getInetAddress().getHostAddress());
-//
-//                    // Handle the reducer's message in a separate thread using MasterHandler or custom logic
-//                    new Thread(() -> {
-//                        // Handle reducer messages in a separate thread
-//                        MasterHandler reducerHandler = new MasterHandler(reducerSocketClient);
-//                        new Thread(reducerHandler).start();
-//                    }).start();
-//                }
-//
-//            } catch (IOException e) {
-//                System.err.println("Error in reducer listener: " + e.getMessage());
-            //}
+            // 3) Spawn ReducerListener
+            new Thread(() -> {
+                try (ServerSocket rs = new ServerSocket(6000)) {
+                    while (true) {
+                        Socket reducerSock = rs.accept();
+                        DataOutputStream dout = new DataOutputStream(reducerSock.getOutputStream());
+                        dout.writeUTF(String.valueOf(numOfWorkers));
+                        dout.flush();
 
+                        new Thread(new ReducerServer(reducerSock)).start();
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }).start();
 
             while (true) {
                 Socket masterHandler = serverSocket.accept();
