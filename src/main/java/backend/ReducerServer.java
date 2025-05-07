@@ -32,7 +32,7 @@ public class ReducerServer implements Runnable{
             try (Socket masterInitSocket = serverSocket.accept();
                  DataInputStream in = new DataInputStream(masterInitSocket.getInputStream())) {
 
-                numberOfWorkers = in.readInt();
+                numberOfWorkers = 3;
                 System.out.println("Reducer received numberOfWorkers: " + numberOfWorkers);
             }
 
@@ -95,9 +95,16 @@ public class ReducerServer implements Runnable{
                     }
                     //if all messages for a mapID arrived from workers
                     if (resultsCount.get(mapID) == numberOfWorkers) {
+                        //reduce
                         CustomMessage reducedMessage = reduce(intermediateResults.get(mapID), action);
-                        out.writeObject(reducedMessage);
-                        out.flush();
+
+                        try (Socket masterSocket = new Socket("localhost", 7000);
+                            ObjectOutputStream masterOut = new ObjectOutputStream(masterSocket.getOutputStream())) {
+                            masterOut.writeObject(reducedMessage);
+                            masterOut.flush();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                         // Clean up data structures for this MapID
                         intermediateResults.remove(mapID);
                         resultsCount.remove(mapID);

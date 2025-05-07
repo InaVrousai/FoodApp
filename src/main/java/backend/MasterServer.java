@@ -48,12 +48,12 @@ public class MasterServer {
         return (int) (numOfWorkers * fractionalPart);
     }
 
-    protected static CustomMessage sendMessageExpectReply(Object msg, int workerId) {
+    protected static CustomMessage sendMessageExpectReply(CustomMessage msg, int workerId) {
         WorkerInfo worker = workers.get(workerId);
         try (Socket workerSocket = new Socket(worker.getAddress(), worker.getPort());
              ObjectOutputStream out = new ObjectOutputStream(workerSocket.getOutputStream());
              ObjectInputStream in = new ObjectInputStream(workerSocket.getInputStream())) {
-
+            System.out.println("MasterServer sending to Worker " + workerId + ": " + msg.getAction()); // Log sent message
             out.writeObject(msg);
             out.flush();
             return (CustomMessage) in.readObject();
@@ -67,7 +67,7 @@ public class MasterServer {
         WorkerInfo worker = workers.get(workerId);
         try (Socket workerSocket = new Socket(worker.getAddress(), worker.getPort());
              ObjectOutputStream out = new ObjectOutputStream(workerSocket.getOutputStream())) {
-
+            System.out.println("Sending message to workerid: "+worker.getId());
             out.writeObject(msg);
             out.flush();
         } catch (IOException e) {
@@ -167,33 +167,35 @@ public class MasterServer {
                 try (DataInputStream workerSocketIn = new DataInputStream(workerSocket.getInputStream())) {
                     workers.add(new WorkerInfo(i, workerAddress, 5001+i));
                 } catch (IOException e) {
-                    System.err.println("\n! Server.main(): Failed to read port from Worker: " + workerAddress);
+                    System.err.println("\n Server.main(): Failed to read port from Worker: " + workerAddress);
                 }
             }
+            // Start the reducer listener (single connection)
+            try (ServerSocket reducerServerSocket = new ServerSocket(7000, 10)) {
+                reducerServerSocket.setReuseAddress(true);
+                System.out.println("MasterServer is listening for reducer connection on port 7000...");
 
-            // 2) Handshake with Reducer
-            try (Socket reducerSock = new Socket("localhost", 6000);
-                 DataOutputStream out = new DataOutputStream(reducerSock.getOutputStream())) {
-                out.writeInt(numOfWorkers);
-                // <-- use writeUTF
-                out.flush();
-            }
-
-            // 3) Spawn ReducerListener
-            new Thread(() -> {
-                try (ServerSocket rs = new ServerSocket(6000)) {
-                    while (true) {
-                        Socket reducerSock = rs.accept();
-                        DataOutputStream dout = new DataOutputStream(reducerSock.getOutputStream());
-                        dout.writeUTF(String.valueOf(numOfWorkers));
-                        dout.flush();
-
-                        new Thread(new ReducerServer(reducerSock)).start();
+                // Accept the sole reducer connection
+                Socket reducerSocket = reducerServerSocket.accept();
+                String reducerAddress = reducerSocket.getInetAddress().getHostName();
+                System.out.printf("\n> Reducer:%s connected.%n", reducerAddress);
+                try (ObjectInputStream reducerSocketIn = new ObjectInputStream(reducerSocket.getInputStream())) {
+                    // Read the CustomMessage from the reducer
+                    CustomMessage reducerMsg = (CustomMessage) reducerSocketIn.readObject();
+                    System.out.println("Received reducer result with action: " + reducerMsg.getAction());
+                    // Process the reducer message as needed
+                } catch (IOException | ClassNotFoundException e) {
+                    System.err.println("\nMasterServer: Failed to read reducer result from: " + reducerAddress);
+                } finally {
+                    try {
+                        reducerSocket.close();
+                    } catch (IOException e) {
+                        // Handle socket close exception, if necessary
                     }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
                 }
-            }).start();
+            } catch (IOException e) {
+                System.err.println("Reducer listener encountered an error: " + e.getMessage());
+            }
 
             while (true) {
                 Socket masterHandler = serverSocket.accept();

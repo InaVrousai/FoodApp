@@ -36,7 +36,7 @@ public class WorkerAction implements Runnable {
 
             CustomMessage message = (CustomMessage) received;
 
-            System.out.println("Message received:"+ message.getAction());
+            System.out.println("Message received: "+ message.getAction() +" with payload "+message.getJsonString());
 
             CustomMessage responseMessage = handleAction(message);
 
@@ -101,55 +101,11 @@ public class WorkerAction implements Runnable {
                 }
                 String productName = message.getParameters().getString("Product");
                 ArrayList<Product> products = store.getProductsList();
-                boolean removed = products.removeIf(p -> p.getProductName().equals(productName));
-
-                if (!removed) {
-                    return new CustomMessage("ERROR",
-                            new JSONObject().put("message", "Product " + productName + " not found in store ID " + storeId),
-                            null, null);
-                }
+                //"removes" product from a store
+                store.removeProduct(productName);
                 store.calculatePriceRange();
                 return new CustomMessage("ACK", new JSONObject(), null, null);
             }
-//            case "IncreaseProductAmount": {
-//                int storeId   = message.getParameters().getInt("restaurantId");
-//                String name   = message.getParameters().getString("Product").trim();
-//                int delta     = message.getParameters().getInt("Amount");
-//                Store store   = Worker.storeMap.get(storeId);
-//
-//                System.out.printf("[DEBUG] IncAmt store=%d product=\"%s\" delta=%d%n", storeId, name, delta);
-//                System.out.println("[DEBUG] Before update, products:");
-//                for (Product p : store.getProductsList()) {
-//                    System.out.printf("    • \"%s\": avail=%d%n",
-//                            p.getProductName(), p.getAvailableAmount());
-//                }
-//
-//                boolean found = false;
-//                for (Product p : store.getProductsList()) {
-//                    if (p.getProductName().trim().equalsIgnoreCase(name)) {
-//                        p.setAvailableAmount(p.getAvailableAmount() + delta);
-//                        found = true;
-//                        break;
-//                    }
-//                }
-//
-//                if (!found) {
-//                    System.err.println("[DEBUG] Product not found: " + name);
-//                    return new CustomMessage("ERROR",
-//                            new JSONObject().put("message", "Product " + name + " not found"), null, null);
-//                }
-//
-//                System.out.println("[DEBUG] After update, new avail:");
-//                for (Product p : store.getProductsList()) {
-//                    if (p.getProductName().trim().equalsIgnoreCase(name)) {
-//                        System.out.printf("    • \"%s\": avail=%d%n",
-//                                p.getProductName(), p.getAvailableAmount());
-//                    }
-//                }
-//
-//                store.calculatePriceRange();
-//                return new CustomMessage("ACK", new JSONObject(), null, null);
-//            }
             case "TotalSales": {
 
                 int storeId = message.getParameters().getInt("restaurantId");
@@ -195,6 +151,12 @@ public class WorkerAction implements Runnable {
                     //finds the product we want to increase the amount
                     Product product = store.findProduct(message.getParameters().getString("Product"));
                     //increases the amount
+                    if (product == null) {
+                        return new CustomMessage("ERROR"
+                                ,new JSONObject().put("message", "The product name doesn't exists: "+ message.getParameters().getString("Product"))
+                                ,null,null);
+                    }
+
                     //sets product in use in case the product ammount was zero so it was not in use
                     product.setProductInUse(true);
                     product.setAvailableAmount(product.getAvailableAmount() + amount);
@@ -303,13 +265,13 @@ public class WorkerAction implements Runnable {
 
             }
                 //=====Client Commands=====
-            case "search":
+            case "Search":
                 return applyFilters(message);
 
-            case "buy":
+            case "Buy":
                 return  buy(message);
 
-            case "rate":
+            case "Rate":
                 return rate(message);
 
             default:
@@ -351,6 +313,11 @@ public class WorkerAction implements Runnable {
                 String productName = productObject.getString("Product");
                 Product product = store.findProduct(productName); //finds the product object based on the product name
 
+                if (product == null) {
+                    return new CustomMessage("ERROR"
+                            ,new JSONObject().put("message", "The product name doesn't exists: "+ productName)
+                            ,null,null);
+                }
                 int amount = productObject.getInt("Amount");
                 if (amount <= 0 || amount > product.getAvailableAmount()) {
                     return new CustomMessage("ERROR"
@@ -398,7 +365,7 @@ public class WorkerAction implements Runnable {
                 //Store goes in use
                 store.storeInUse = true;
                 //client rating
-                double rating = message.getParameters().getDouble("Rating");
+                double rating = message.getParameters().getDouble("Stars");
 
                 //updating number of votes
                 int newNumberOfVotes = store.getNumberOfVotes() + 1;
@@ -434,24 +401,26 @@ public class WorkerAction implements Runnable {
             double minStars = message.getParameters().getDouble("minStars");
             String priceRange = message.getParameters().getString("priceRange");
             for (Store store : storesList) {
+                System.out.println(store.getStoreName());
             //if the store doesn't much one filter returns null
             if (DistanceCalculator.calculateDistance(store.getLatitude(), store.getLongitude(), latitude, longitude) <= 5.0) {
                 if (store.getPriceRange().equals(priceRange) || priceRange.equals("-")) {
                     if (store.getStars() >= minStars || minStars == 0) {
                         if (categories.contains(store.getFoodCategory()) || categories.isEmpty()) {
                             //Returns message with the json
-                            tempStoreList.add(store);//adds store to the storeList that the reducer will receive
+                                tempStoreList.add(store);//adds store to the storeList that the reducer will receive
                         }
                     }
                 }
             }
             }
             JSONObject preReduce = new JSONObject();
-            preReduce.put("IntermediateData" ,storesWithProductsToJson(tempStoreList));
+            preReduce.put("Stores" ,storesWithProductsToJson(tempStoreList));
             preReduce.put("MapID",message.getParameters().getInt("MapID"));
-            sendToReducer(new CustomMessage("Search", preReduce, null, null)); //sends message to the reducer
-            return new CustomMessage("ACK",null,null,null);
+            //sendToReducer(new CustomMessage("Search", preReduce, null, null)); //sends message to the reducer
+            return new CustomMessage("Search", preReduce, null, null);
         }
+
     //Puts stores and their products in a json Array
     public JSONArray storesWithProductsToJson(ArrayList<Store> stores) {
         JSONArray storesJArray = new JSONArray();// stores all store jsons

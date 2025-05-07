@@ -41,7 +41,7 @@ public class ClientRequest {
     //the order must consist of a json array that every cell has a Product Amount
     public CustomMessage buy(String storeName, JSONArray order, String customerName) {
         JSONObject buyJson = new JSONObject();
-        buyJson.put("StoreName", storeName);
+        buyJson.put("Store", storeName);
         buyJson.put("Order", order);
         //buyJson.put("customerName", customerName);
 
@@ -51,7 +51,7 @@ public class ClientRequest {
 
     public CustomMessage rate(String storeName, double stars, String customerName) {
         JSONObject rateJson = new JSONObject();
-        rateJson.put("StoreName", storeName);
+        rateJson.put("Store", storeName);
         rateJson.put("Stars", stars);
         //rateJson.put("customerName", customerName);
 

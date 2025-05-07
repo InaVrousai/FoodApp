@@ -4,6 +4,8 @@ package backend;
 import java.io.Serializable;
 import java.util.ArrayList;
 
+import static java.lang.Math.max;
+
 public class Store implements Serializable {
     private static int id; //used in mapping
     private final String storeName;
@@ -63,17 +65,27 @@ public class Store implements Serializable {
 
     public void calculatePriceRange(){
         double sum =0;
+        int numberOfInactiveProducts=0; // number of inactive products from the store (manager removed)
         for(Product product : productsList){
-            sum += product.getPrice();
+            if(product.isProductInUse()){
+                sum += product.getPrice();
+            }else{
+                numberOfInactiveProducts++;
+            }
         }
-        double averagePrice = sum / productsList.size();
-        if( averagePrice <= 5 ){
-            setPriceRange("$");
-        }else if (averagePrice <=15){
-            setPriceRange("$$");
+        //to avoid division with zero
+        if((productsList.size() - numberOfInactiveProducts) == 0){
+            setPriceRange("-");
         }else{
-            setPriceRange("$$$");
+            double averagePrice = sum / (productsList.size() - numberOfInactiveProducts);
+            if (averagePrice <= 5) {
+                setPriceRange("$");
+            } else if (averagePrice <= 15) {
+                setPriceRange("$$");
+            } else {
+                setPriceRange("$$$");
 
+            }
         }
     }
 

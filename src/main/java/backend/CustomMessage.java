@@ -35,6 +35,7 @@ public class CustomMessage implements Serializable {
     public Product getProduct() {
         return product;
     }
+    public String getJsonString(){return jsonString;}
 
     @Override
     public String toString() {
