@@ -12,11 +12,11 @@ import java.util.Map;
 
 public class ReducerServer implements Runnable{
     private static final Object lock = new Object();//used for synchronisation
-    private Socket socket;
+    private final Socket socket;
     //map to store workers intermediate results
-    private static Map<Integer, ArrayList<CustomMessage>> intermediateResults = new HashMap<>();
+    private static final Map<Integer, ArrayList<CustomMessage>> intermediateResults = new HashMap<>();
     //map to know if we have received messages from all the workers
-    private static Map<Integer, Integer> resultsCount = new HashMap<>();
+    private static final Map<Integer, Integer> resultsCount = new HashMap<>();
 
     private static  int numberOfWorkers;
     public static void main(String[] args) {
@@ -28,13 +28,11 @@ public class ReducerServer implements Runnable{
         try (ServerSocket serverSocket = new ServerSocket(6000)) {
             System.out.println("Reducer is running on port " + 6000);
 
-            // accept Master connection and get worker count
-            try (Socket masterInitSocket = serverSocket.accept();
-                 DataInputStream in = new DataInputStream(masterInitSocket.getInputStream())) {
 
-                numberOfWorkers = 3;
+
+                numberOfWorkers = Integer.parseInt(args[0]);
                 System.out.println("Reducer received numberOfWorkers: " + numberOfWorkers);
-            }
+
 
             while (true) {
                 Socket masterSocket = serverSocket.accept();
@@ -71,27 +69,34 @@ public class ReducerServer implements Runnable{
             CustomMessage message = (CustomMessage) obj;
             String action = message.getAction();
             JSONObject params = message.getParameters();
-
+            System.out.println("Received action: " + message.getAction());
+            System.out.println("Payload: " + message.getJsonString());
 
             synchronized (lock){
                 if (message.getAction().equals("Search") || message.getAction().equals("TotalSalesStoreCategory") || message.getAction().equals("TotalSalesProductType")) {
                     int mapID = params.getInt("MapID");//the mapID that the message carries
                     //if this is the first mapID we receive for a message
                     if (!intermediateResults.containsKey(mapID)) {
+
                         intermediateResults.put(mapID, new ArrayList<>());//if the map dosent have this mapID
-                        // it creates a new array to store the intermediate messages
-                        resultsCount.put(mapID, 0); //initializes the worker response counter
+
+                        resultsCount.put(mapID, 0);//initializes the worker response counter
                     }
                     intermediateResults.get(mapID).add(message); // Store the CustomMessage
-                    resultsCount.put(mapID, resultsCount.get(mapID) + 1); //increases the worker response counter
+                    resultsCount.put(mapID, resultsCount.getOrDefault(mapID, 0)+ 1); //increases the worker response counter
 
 
-                    if (resultsCount.get(mapID) < numberOfWorkers) {
+                    while (resultsCount.containsKey(mapID) && resultsCount.get(mapID) < numberOfWorkers) {
                         try {
                             lock.wait(); // waits until all worker messages arrive
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }
+                    }
+                    // If the key has been removed, then another thread already performed the reduce.
+                    if (!resultsCount.containsKey(mapID)) {
+                        lock.notifyAll();
+                        return;
                     }
                     //if all messages for a mapID arrived from workers
                     if (resultsCount.get(mapID) == numberOfWorkers) {

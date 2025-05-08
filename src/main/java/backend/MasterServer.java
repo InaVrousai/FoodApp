@@ -3,9 +3,6 @@ package backend;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.json.JSONObject;
 
 
 public class MasterServer {
@@ -94,7 +91,7 @@ public class MasterServer {
 //    }
     protected static void broadcastMessageToWorkers(CustomMessage msg) {
         for (WorkerInfo worker : workers) {
-            sendMessageToWorker(msg, worker.getId());
+            sendMessageExpectReply(msg, worker.getId());
         }
     }
 
@@ -170,32 +167,20 @@ public class MasterServer {
                     System.err.println("\n Server.main(): Failed to read port from Worker: " + workerAddress);
                 }
             }
-            // Start the reducer listener (single connection)
-            try (ServerSocket reducerServerSocket = new ServerSocket(7000, 10)) {
-                reducerServerSocket.setReuseAddress(true);
-                System.out.println("MasterServer is listening for reducer connection on port 7000...");
 
-                // Accept the sole reducer connection
-                Socket reducerSocket = reducerServerSocket.accept();
-                String reducerAddress = reducerSocket.getInetAddress().getHostName();
-                System.out.printf("\n> Reducer:%s connected.%n", reducerAddress);
-                try (ObjectInputStream reducerSocketIn = new ObjectInputStream(reducerSocket.getInputStream())) {
-                    // Read the CustomMessage from the reducer
-                    CustomMessage reducerMsg = (CustomMessage) reducerSocketIn.readObject();
-                    System.out.println("Received reducer result with action: " + reducerMsg.getAction());
-                    // Process the reducer message as needed
-                } catch (IOException | ClassNotFoundException e) {
-                    System.err.println("\nMasterServer: Failed to read reducer result from: " + reducerAddress);
-                } finally {
-                    try {
-                        reducerSocket.close();
-                    } catch (IOException e) {
-                        // Handle socket close exception, if necessary
+            //Accept the sole reducer connection
+            new Thread(() -> {
+                try (ServerSocket reducerSocket = new ServerSocket(7000)) {
+                    while (true) {
+                        Socket s = reducerSocket.accept();
+                        MasterReducerHandler  masterReducerHandlerThread = new MasterReducerHandler(s);
+                        new Thread(masterReducerHandlerThread).start();
+
                     }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
-                System.err.println("Reducer listener encountered an error: " + e.getMessage());
-            }
+            }).start();
 
             while (true) {
                 Socket masterHandler = serverSocket.accept();

@@ -16,18 +16,22 @@ import static java.lang.Math.min;
 public class WorkerAction implements Runnable {
     ObjectOutputStream objectOutputStream;
     ObjectInputStream objectInputStream;
+    Socket socket ;
 
     public WorkerAction(Socket socket) throws IOException {
+        this.socket = socket;
         // Initialize output first to avoid deadlock
-        this.objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
-        this.objectOutputStream.flush();
-        this.objectInputStream = new ObjectInputStream(socket.getInputStream());
+//        this.objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
+//        this.objectOutputStream.flush();
+//        this.objectInputStream = new ObjectInputStream(socket.getInputStream());
     }
 
     @Override
     public void run() {
 
-        try {
+        try(ObjectInputStream objectInputStream = new ObjectInputStream(socket.getInputStream());) {
+            this.objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
+            this.objectOutputStream.flush();
             Object received = objectInputStream.readObject();
             if (!(received instanceof CustomMessage)) {
                 objectOutputStream.writeObject(new CustomMessage("error", new JSONObject().put("message", "Invalid message type"),null,null));
@@ -49,8 +53,10 @@ public class WorkerAction implements Runnable {
             throw new RuntimeException(e);
         } finally {
             try {
-                objectInputStream.close();
-                objectOutputStream.close();
+                if(objectInputStream!=null)
+                    objectInputStream.close();
+                if(objectOutputStream!=null)
+                    objectOutputStream.close();
             } catch (IOException e) {
                 System.err.println("Error closing streams: " + e.getMessage());
             }
@@ -415,10 +421,10 @@ public class WorkerAction implements Runnable {
             }
             }
             JSONObject preReduce = new JSONObject();
-            preReduce.put("Stores" ,storesWithProductsToJson(tempStoreList));
+            preReduce.put("IntermediateData" ,storesWithProductsToJson(tempStoreList));
             preReduce.put("MapID",message.getParameters().getInt("MapID"));
-            //sendToReducer(new CustomMessage("Search", preReduce, null, null)); //sends message to the reducer
-            return new CustomMessage("Search", preReduce, null, null);
+            sendToReducer(new CustomMessage("Search", preReduce, null, null)); //sends message to the reducer
+            return new CustomMessage("ACK",null,null,null);
         }
 
     //Puts stores and their products in a json Array
