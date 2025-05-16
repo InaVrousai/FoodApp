@@ -57,7 +57,6 @@ public class ReducerServer implements Runnable{
 
     private static void handleWorkerMessage(Socket socket) {
         try (
-                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
                 ObjectInputStream in = new ObjectInputStream(socket.getInputStream())
         ) {
             Object obj = in.readObject();
@@ -102,7 +101,7 @@ public class ReducerServer implements Runnable{
                     if (resultsCount.get(mapID) == numberOfWorkers) {
                         //reduce
                         CustomMessage reducedMessage = reduce(intermediateResults.get(mapID), action);
-
+                        System.out.println("reduced message: "+reducedMessage.getJsonString());
                         try (Socket masterSocket = new Socket("localhost", 7000);
                             ObjectOutputStream masterOut = new ObjectOutputStream(masterSocket.getOutputStream())) {
                             masterOut.writeObject(reducedMessage);

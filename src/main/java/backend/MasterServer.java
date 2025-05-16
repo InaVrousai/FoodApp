@@ -1,5 +1,7 @@
 package backend;
 
+import org.json.JSONObject;
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -11,7 +13,7 @@ public class MasterServer {
 
     protected static final Map<String,Integer> storeNameToId = new HashMap<>();
     //used for pending requests
-    protected static final Map<Integer, Socket> socketMap = new HashMap<>();
+    protected static final Map<Integer, ObjectOutputStream> streamMap = new HashMap<>();
 
     // For order ID generation with thread-safe incrementation
     private static int restaurantId = 0;
@@ -19,7 +21,7 @@ public class MasterServer {
     //used for synchronisation
     private static final Object restaurantIdSyncObj = new Object();
     private static final Object mapIdSyncObj = new Object();
-    protected static final Object socketMapLock = new Object();
+    protected static final Object streamMapLock = new Object();
 
     public static int getNextRestaurantId() {
         synchronized (restaurantIdSyncObj) {
@@ -95,52 +97,52 @@ public class MasterServer {
         }
     }
 
-//    private static void seedInitialStores() {
-//        System.out.println("[Setup] Seeding initial stores…");
-//        JasonParser parser = new JasonParser();
-//
-//        // 1) figure out where your JSON lives
-//        String dataDir = System.getProperty("user.dir") + File.separator + "data";
-//        File dir = new File(dataDir);
-//        if (!dir.exists() || !dir.isDirectory()) {
-//            System.err.println("[Setup] Data directory not found: " + dataDir);
-//            return;
-//        }
-//
-//        // 2) grab every .json file
-//        File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
-//        if (files == null || files.length == 0) {
-//            System.err.println("[Setup] No JSON files found in: " + dataDir);
-//            return;
-//        }
-//
-//        // 3) load & send each store
-//        for (File file : files) {
-//            try {
-//                System.out.println("[Setup] Loading store from: " + file.getName());
-//                Store store = parser.jsonReader(file.getAbsolutePath());
-//
-//                // assign a new ID
-//                int id = getNextRestaurantId();
-//                store.setId(id);
-//                storeNameToId.put(store.getStoreName(), id);
-//
-//                // forward to the hashed worker
-//                int workerId = hash(id);
-//                CustomMessage msg = new CustomMessage("AddStore", new JSONObject(), store, null);
-//                Object resp = sendMessageExpectReply(msg, workerId);
-//
-//                if (resp instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
-//                    System.out.println("[Setup] Added `" + store.getStoreName()
-//                            + "` (ID=" + id + ") to worker " + workerId);
-//                } else {
-//                    System.err.println("[Setup] Failed to add `" + store.getStoreName() + "`");
-//                }
-//            } catch (Exception e) {
-//                System.err.println("[Setup] Error reading " + file.getName() + ": " + e.getMessage());
-//            }
-//        }
-//    }
+ private static void seedInitialStores() {
+     System.out.println("[Setup] Seeding initial stores…");
+     JasonParser parser = new JasonParser();
+
+     // 1) figure out where your JSON lives
+     String dataDir = System.getProperty("user.dir") + File.separator + "data";
+     File dir = new File(dataDir);
+     if (!dir.exists() || !dir.isDirectory()) {
+         System.err.println("[Setup] Data directory not found: " + dataDir);
+         return;
+     }
+
+     // 2) grab every .json file
+     File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
+     if (files == null || files.length == 0) {
+         System.err.println("[Setup] No JSON files found in: " + dataDir);
+         return;
+     }
+
+     // 3) load & send each store
+     for (File file : files) {
+         try {
+             System.out.println("[Setup] Loading store from: " + file.getName());
+             Store store = parser.jsonReader(file.getAbsolutePath());
+
+             // assign a new ID
+             int id = getNextRestaurantId();
+             store.setId(id);
+             storeNameToId.put(store.getStoreName(), id);
+
+             // forward to the hashed worker
+             int workerId = hash(id);
+             CustomMessage msg = new CustomMessage("AddStore", new JSONObject(), store, null);
+             Object resp = sendMessageExpectReply(msg, workerId);
+
+             if (resp instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
+                 System.out.println("[Setup] Added `" + store.getStoreName()
+                         + "` (ID=" + id + ") to worker " + workerId);
+             } else {
+                 System.err.println("[Setup] Failed to add `" + store.getStoreName() + "`");
+             }
+         } catch (Exception e) {
+             System.err.println("[Setup] Error reading " + file.getName() + ": " + e.getMessage());
+         }
+     }
+ }
 
 
     public static void main(String[] args) {
@@ -181,6 +183,7 @@ public class MasterServer {
                     e.printStackTrace();
                 }
             }).start();
+            seedInitialStores();
 
             while (true) {
                 Socket masterHandler = serverSocket.accept();

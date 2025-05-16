@@ -10,7 +10,7 @@ import java.util.ArrayList;
 
 import static backend.Worker.storesList;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
+
 
 
 public class WorkerAction implements Runnable {
@@ -62,7 +62,7 @@ public class WorkerAction implements Runnable {
             }
         }
     }
-//WorkerInfo worker = new WorkerInfo(45,null,5000);
+
 
     private CustomMessage handleAction(CustomMessage message) throws Exception {
 
@@ -73,7 +73,7 @@ public class WorkerAction implements Runnable {
                 Store store = message.getStore();
                 System.out.println("Store added: " + store.getStoreName());
                 store.calculatePriceRange(); //calculate price range
-                // 4) Store in memory
+                // Store in memory
                 storesList.add(store);
                 Worker.storeMap.put(store.getId(), store);
                 return new CustomMessage("ACK", new JSONObject(), null, null);

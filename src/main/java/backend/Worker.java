@@ -3,13 +3,15 @@ package backend;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+
 
 public class Worker{
 
     protected  static ArrayList<Store> storesList = new ArrayList<>();
-    protected  static  Map<Integer, Store> storeMap = new ConcurrentHashMap<>(); //is used to find store quickly
+    protected  static  Map<Integer, Store> storeMap = new HashMap<>(); //is used to find store quickly
+    protected  static Object storeMapLock = new Object();
+    protected  static Object storeListLock = new Object();
 
     public static void main(String[] args) {
         if (args.length != 2) {

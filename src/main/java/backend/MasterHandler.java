@@ -43,14 +43,16 @@ public class MasterHandler implements Runnable {
             } catch (IOException ex) {
                 System.err.println("Error sending error message to client: " + ex.getMessage());
             }
-        }/* finally {
+        } finally {
+
             try {
                 System.out.println("Closing client connection.");
-                clientSocket.close();
+                if(false)
+                    clientSocket.close();
             } catch (IOException e) {
                 System.err.println("Failed to close client socket: " + e.getMessage());
             }
-        }*/
+        }
     }
 
     private void handleAction(CustomMessage msg,ObjectOutputStream socket) throws IOException {
@@ -59,20 +61,20 @@ public class MasterHandler implements Runnable {
 
         switch (action) {
             case "AddStore": {
-                // 1) fetch the Store object from the message
+                // fetch the Store object from the message
                 Store store = msg.getStore();
                 String storeName = store.getStoreName();
 
-                // 2) assign a new ID and set on the Store
+                // assign a new ID and set on the Store
                 int storeId = MasterServer.getNextRestaurantId();
                 store.setId(storeId);
 
                 MasterServer.storeNameToId.put(storeName, storeId);
 
-                // 3) select worker via consistent hashing
+                // select worker via consistent hashing
                 int workerId = MasterServer.hash(storeId);
 
-                // 4) forward to the chosen worker
+                // forward to the chosen worker
                 CustomMessage workerMsg = new CustomMessage(
                         "AddStore",
                         new JSONObject(),
@@ -81,7 +83,7 @@ public class MasterHandler implements Runnable {
                 );
                 Object rawResp = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
-                // 5) reply ACK or ERROR back to manager
+                // reply ACK or ERROR back to manager
                 if (rawResp instanceof CustomMessage cm && "ACK".equals(cm.getAction())) {
                     sendResponse(new CustomMessage("ACK", new JSONObject(), null, null),socket);
                 } else {
@@ -91,11 +93,10 @@ public class MasterHandler implements Runnable {
                 break;
             }
             case "AddProduct":{
-                // 1) extract
+                //  extract
                 String storeName = msg.getParameters().getString("Store");
 
-
-                // 2) pick worker by storeName hash
+                // pick worker by storeName hash
                 Integer storeId = MasterServer.storeNameToId.get(storeName);
 
                 if (storeId == null) {
@@ -112,9 +113,11 @@ public class MasterHandler implements Runnable {
                 Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
                 // ACK or ERROR
-                String reply = (raw instanceof CustomMessage cm && "ACK".equals(cm.getAction()))
-                        ? "ACK" : "ERROR";
-                sendResponse(new CustomMessage(reply, new JSONObject(), null, null),socket);
+                if (raw instanceof CustomMessage cm && cm.getAction().equals("ACK")) {
+                    sendResponse(new CustomMessage("ACK", new JSONObject(), null, null),socket);
+                } else {
+                    sendResponse(new CustomMessage("ERROR", new JSONObject(), null, null),socket);
+                }
                 clientSocket.close();
                 break;
             }
@@ -136,7 +139,7 @@ public class MasterHandler implements Runnable {
                     ),socket);
                 }
 
-                // 3) pick the worker by consistent hashing & forward
+                // pick the worker by consistent hashing & forward
                 int workerId = MasterServer.hash(storeId);
                 CustomMessage workerMsg = new CustomMessage(
                         "RemoveProduct",
@@ -149,7 +152,7 @@ public class MasterHandler implements Runnable {
                 Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
 
-                // 4) return ACK or ERROR back to the manager
+                // return ACK or ERROR back to the manager
                 if (raw instanceof CustomMessage cm && cm.getAction().equals("ACK")) {
                     sendResponse(new CustomMessage("ACK", new JSONObject(), null, null),socket);
                 } else {
@@ -174,7 +177,7 @@ public class MasterHandler implements Runnable {
                 }
                 int workerId = MasterServer.hash(storeId);
 
-                // 3) forward
+                //  forward
                 CustomMessage workerMsg = new CustomMessage(
                         "IncreaseProductAmount",
                         new JSONObject()
@@ -186,7 +189,7 @@ public class MasterHandler implements Runnable {
                 );
                 Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
-                // 4) return
+                // return
                 if (raw instanceof CustomMessage cm && cm.getAction().equals("ACK")) {
                     sendResponse(new CustomMessage("ACK", new JSONObject(), null, null),socket);
                 } else {
@@ -244,7 +247,7 @@ public class MasterHandler implements Runnable {
                 CustomMessage wm = new CustomMessage("TotalSales", params, null, null);
                 Object raw = MasterServer.sendMessageExpectReply(wm, wid);
 
-                if (raw instanceof CustomMessage cm) {
+                if (raw instanceof CustomMessage cm && cm.getAction().equals("ACK")) {
                     // forward the JSON body of the ACK
                     sendResponse(new CustomMessage("ACK", cm.getParameters(), null, null),socket);
                 } else {
@@ -260,8 +263,8 @@ public class MasterHandler implements Runnable {
                 params.put("MapID", mapId);
 
                 // stow away this client socket for the ReducerHandler later
-                synchronized (MasterServer.socketMapLock) {
-                    MasterServer.socketMap.put(mapId, clientSocket);
+                synchronized (MasterServer.streamMapLock) {
+                    MasterServer.streamMap.put(mapId, socket);
                 }
 
                 // broadcast to all workers
@@ -276,8 +279,8 @@ public class MasterHandler implements Runnable {
                 int mapID = MasterServer.getNextMapId();
                 params.put("MapID",mapID);
                 //locking socket map to prevent race conditions
-                synchronized (MasterServer.socketMapLock){
-                   MasterServer.socketMap.put(mapID,clientSocket);
+                synchronized (MasterServer.streamMapLock){
+                   MasterServer.streamMap.put(mapID,socket);
                 }
                 //broadcasts the message to the workers
                 MasterServer.broadcastMessageToWorkers(new CustomMessage("TotalSalesStoreCategory",params,null,null));
@@ -288,8 +291,8 @@ public class MasterHandler implements Runnable {
                 int mapID = MasterServer.getNextMapId();
                 JSONObject newParams = msg.getParameters().put("MapID", mapID);
                 //locking socket map to prevent race conditions
-                synchronized (MasterServer.socketMapLock) {
-                  MasterServer.socketMap.put(mapID, clientSocket);
+                synchronized (MasterServer.streamMapLock) {
+                  MasterServer.streamMap.put(mapID, socket);
                 }
                 //broadcasts the message to the workers
                MasterServer.broadcastMessageToWorkers(new CustomMessage("Search", newParams, null, null));

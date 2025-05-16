@@ -10,16 +10,17 @@ public class MasterReducerHandler implements Runnable {
         try (ObjectInputStream in = new ObjectInputStream(sock.getInputStream())) {
             CustomMessage reduced = (CustomMessage) in.readObject();
             int mapID = reduced.getParameters().getInt("MapID");
-
-            Socket client;
-            synchronized(MasterServer.socketMapLock) {
-                client = MasterServer.socketMap.remove(mapID);
+            System.out.println(reduced.getJsonString());
+            ObjectOutputStream client;
+            synchronized(MasterServer.streamMapLock) {
+                client = MasterServer.streamMap.remove(mapID);
             }
             if (client != null) {
-                try (ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream())) {
-                    out.writeObject(reduced);
-                }
-                client.close();
+              //  try (ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream())) {
+                    client.writeObject(reduced);
+                    client.flush();
+               // }
+               // client.close();
             }
         } catch (Exception e) {
             e.printStackTrace();
