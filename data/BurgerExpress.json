@@ -2,7 +2,7 @@
   "StoreName": "Burger Express",
   "Latitude": 37.9838,
   "Longitude": 23.7275,
-  "FoodCategory": "fastfood",
+  "FoodCategory": "burgers",
   "Stars": 4,
   "NoOfVotes": 128,
   "StoreLogo": "burger_logo.png",

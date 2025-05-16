@@ -8,9 +8,9 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 
-import static backend.Worker.storesList;
+import static backend.Worker.*;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
+
 
 
 public class WorkerAction implements Runnable {
@@ -62,7 +62,7 @@ public class WorkerAction implements Runnable {
             }
         }
     }
-//WorkerInfo worker = new WorkerInfo(45,null,5000);
+
 
     private CustomMessage handleAction(CustomMessage message) throws Exception {
 
@@ -73,33 +73,45 @@ public class WorkerAction implements Runnable {
                 Store store = message.getStore();
                 System.out.println("Store added: " + store.getStoreName());
                 store.calculatePriceRange(); //calculate price range
-                // 4) Store in memory
+                // Store in memory
                 storesList.add(store);
-                Worker.storeMap.put(store.getId(), store);
+                synchronized (storeMapLock) {
+                    Worker.storeMap.put(store.getId(), store);
+                }
+
                 return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
             case "AddProduct": {
 
                 int storeId = message.getParameters().getInt("restaurantId");
-                Store store = Worker.storeMap.get(storeId);   // finds store
+                Store store;
+                //syncro to avoid race conditions
+                synchronized (storeMapLock) {
+                    store = Worker.storeMap.get(storeId);   // finds store
+                }
                 if (store == null) {
                     return new CustomMessage("ERROR",
-                            new JSONObject().put("message", "Store ID " + storeId + " not found"),
-                            null, null
-                    );
+                                new JSONObject().put("message", "Store ID " + storeId + " not found"),
+                                null, null
+                        );
                 }
                 //adds the product to the store
                 store.addProduct(message.getProduct());
 
                 //recalculates price range
                 store.calculatePriceRange();
+                System.out.println("Add product was successful");
                 return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
             case "RemoveProduct": {
                 int storeId = message.getParameters().getInt("restaurantId");
-                Store store = Worker.storeMap.get(storeId);
+                Store store;
+                //syncro to avoid race conditions
+                synchronized (storeMapLock) {
+                    store = Worker.storeMap.get(storeId);   // finds store
+                }
                 if (store == null) {
                     return new CustomMessage("ERROR",
                             new JSONObject().put("message", "Store ID " + storeId + " not found"),
@@ -110,12 +122,18 @@ public class WorkerAction implements Runnable {
                 //"removes" product from a store
                 store.removeProduct(productName);
                 store.calculatePriceRange();
+                System.out.println("Remove was successful");
                 return new CustomMessage("ACK", new JSONObject(), null, null);
             }
             case "TotalSales": {
 
                 int storeId = message.getParameters().getInt("restaurantId");
-                Store store = Worker.storeMap.get(storeId);   // O(1) lookup
+                Store store;
+
+                //syncro to avoid race conditions
+                synchronized (storeMapLock) {
+                    store = Worker.storeMap.get(storeId);   // finds store
+                }
                 if (store == null) {
                     return new CustomMessage("ERROR",
                             new JSONObject().put("message", "Store ID " + storeId + " not found"),
@@ -132,7 +150,11 @@ public class WorkerAction implements Runnable {
             case "IncreaseProductAmount": {
                 //gets store id from customMessage
                 int storeId = message.getParameters().getInt("restaurantId");
-                Store store = Worker.storeMap.get(storeId);   //finds store
+                Store store;
+                //syncro to avoid race conditions
+                synchronized (storeMapLock) {
+                    store = Worker.storeMap.get(storeId);   // finds store
+                }
                 if (store == null) {
                     return new CustomMessage("ERROR",
                             new JSONObject().put("message", "Store ID " + storeId + " not found"),
@@ -172,13 +194,18 @@ public class WorkerAction implements Runnable {
                     store.storeInUse = false; // Release store usage
                     store.notifyAll(); // wakes up other threads that are waiting for the store
                 }
+                System.out.println("Increase was successful");
                 return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
             case "DecreaseProductAmount": {
                 //gets store id from customMessage
                 int storeId = message.getParameters().getInt("restaurantId");
-                Store store = Worker.storeMap.get(storeId);   //finds store
+                Store store;
+                //syncro to avoid race conditions
+                synchronized (storeMapLock) {
+                    store = Worker.storeMap.get(storeId);   // finds store
+                }
                 if (store == null) {
                     return new CustomMessage("ERROR",
                             new JSONObject().put("message", "Store ID " + storeId + " not found"),
@@ -211,6 +238,7 @@ public class WorkerAction implements Runnable {
                     store.storeInUse = false; // Release store usage
                     store.notifyAll(); // wakes up other threads that are waiting for the store
                 }
+                System.out.println("Decrease was successful");
                     return new CustomMessage("ACK", new JSONObject(), null, null);
             }
 
@@ -221,26 +249,26 @@ public class WorkerAction implements Runnable {
 
                 //a jsonArray that stores intermediate data that is used by the reducer
                 JSONArray storesAnswers = new JSONArray();
-
-                for (Store store : storesList) {
-                    int totalProductSales = 0;
-
-                    for (Product p : store.getProductsList()) {
-                        if (p.getProductType().equals(productType)) {
-                            //adds  total sales
-                            totalProductSales += p.getTotalSales();
-
+                //locking list to avoid race conditions
+                synchronized (storeListLock) {
+                    for (Store store : storesList) {
+                        int totalProductSales = 0;
+                        //for every product in store
+                        for (Product p : store.getProductsList()) {
+                            if (p.getProductType().equals(productType))
+                                //adds  total sales
+                                totalProductSales += p.getTotalSales();
                         }
+                        //creates a new json for each store
                         JSONObject storeAnswer = new JSONObject();
                         storeAnswer.put("TotalSales", totalProductSales);
                         storeAnswer.put("StoreName", store.getStoreName());
                         storesAnswers.put(storeAnswer);//inserts store total sales info into the json array
                     }
-                }
                     //inserts the data into the mapJson
-                    mapJson.put("MapID",message.getParameters().getInt("MapID"));
-                    mapJson.put("IntermediateData",storesAnswers);
-
+                    mapJson.put("MapID", message.getParameters().getInt("MapID"));
+                    mapJson.put("IntermediateData", storesAnswers);
+                }
                 sendToReducer(new CustomMessage(message.getAction(), mapJson, null, null)); //sends message to the reducer
                 return new CustomMessage("ACK",new JSONObject(),null,null);
 
@@ -253,19 +281,23 @@ public class WorkerAction implements Runnable {
                 JSONArray storesAnswers = new JSONArray();
                 int totalSales = 0;
                 String storeFoodCategory = message.getParameters().getString("StoreFoodCategory");
-                for (Store store : storesList) {
-                    if (store.getFoodCategory().equals(storeFoodCategory)) {
-                        totalSales = store.getTotalSales();
-                    }
-                    JSONObject storeAnswer = new JSONObject();
-                    storeAnswer.put("TotalSales", totalSales);
-                    storeAnswer.put("StoreName", store.getStoreName());
-                    storesAnswers.put(storeAnswer);//inserts store total sales info into the json array
-                }
-                //inserts the data into the mapJson
-                mapJson.put("MapID",message.getParameters().getInt("MapID"));
-                mapJson.put("IntermediateData",storesAnswers);
+                //locking store list to avoid race conditions
+                synchronized (storeListLock) {
+                    for (Store store : storesList) {
+                        if (store.getFoodCategory().equals(storeFoodCategory)) {
+                            totalSales = store.getTotalSales();
 
+                            JSONObject storeAnswer = new JSONObject();
+                            storeAnswer.put("TotalSales", totalSales);
+                            storeAnswer.put("StoreName", store.getStoreName());
+                            storesAnswers.put(storeAnswer);//inserts store total sales info into the json array
+                        }
+
+                    }
+                    //inserts the data into the mapJson
+                    mapJson.put("MapID", message.getParameters().getInt("MapID"));
+                    mapJson.put("IntermediateData", storesAnswers);
+                }
                 sendToReducer(new CustomMessage(message.getAction(), mapJson, null, null)); //sends message to the reducer
                 return new CustomMessage("ACK",new JSONObject(),null,null);
 
@@ -290,7 +322,11 @@ public class WorkerAction implements Runnable {
     private  CustomMessage buy(CustomMessage message) throws Exception {
 
         int storeId = message.getParameters().getInt("restaurantId");
-        Store store = Worker.storeMap.get(storeId);   // finds store
+        Store store;
+        //syncro to avoid race conditions
+        synchronized (storeMapLock) {
+            store = Worker.storeMap.get(storeId);   // finds store
+        }
         if (store == null) {
             return new CustomMessage("ERROR",
                     new JSONObject().put("message", "Store ID " + storeId + " not found"),
@@ -344,6 +380,7 @@ public class WorkerAction implements Runnable {
             store.storeInUse = false; // Release store usage
             store.notifyAll(); // wakes up other threads that are waiting for the store
         }
+        System.out.println("Buy was successful");
         return new CustomMessage("ACK",null,null,null);
     }
 
@@ -351,7 +388,11 @@ public class WorkerAction implements Runnable {
         private CustomMessage rate (CustomMessage message){
 
             int storeId = message.getParameters().getInt("restaurantId");
-            Store store = Worker.storeMap.get(storeId);   // O(1) lookup
+            Store store;
+            //syncro to avoid race conditions
+            synchronized (storeMapLock) {
+                store = Worker.storeMap.get(storeId);   // finds store
+            }
             if (store == null) {
                 return new CustomMessage("ERROR",
                         new JSONObject().put("message", "Store ID " + storeId + " not found"),
@@ -388,6 +429,7 @@ public class WorkerAction implements Runnable {
                 store.storeInUse = false; // Release store usage
                 store.notifyAll(); // wakes up other threads that are waiting for the store
             }
+            System.out.println("Rate was successful");
             return new CustomMessage("ACK",null,null,null);
         }
 
@@ -406,19 +448,22 @@ public class WorkerAction implements Runnable {
             ArrayList<Store> tempStoreList = new ArrayList<>();
             double minStars = message.getParameters().getDouble("minStars");
             String priceRange = message.getParameters().getString("priceRange");
-            for (Store store : storesList) {
-                System.out.println(store.getStoreName());
-            //if the store doesn't much one filter returns null
-            if (DistanceCalculator.calculateDistance(store.getLatitude(), store.getLongitude(), latitude, longitude) <= 5.0) {
-                if (store.getPriceRange().equals(priceRange) || priceRange.equals("-")) {
-                    if (store.getStars() >= minStars || minStars == 0) {
-                        if (categories.contains(store.getFoodCategory()) || categories.isEmpty()) {
-                            //Returns message with the json
-                                tempStoreList.add(store);//adds store to the storeList that the reducer will receive
+            //locking store list to avoid race conditions
+            synchronized (storeListLock) {
+                for (Store store : storesList) {
+                    System.out.println(store.getStoreName());
+                    //if the store doesn't much one filter returns null
+                    if (true){//DistanceCalculator.calculateDistance(store.getLatitude(), store.getLongitude(), latitude, longitude) <= 10.0) {
+                        if (store.getPriceRange().equals(priceRange) || priceRange.equals("-")) {
+                            if (store.getStars() >= minStars || minStars == 0) {
+                                if (categories.contains(store.getFoodCategory()) || categories.isEmpty()) {
+                                    //Returns message with the json
+                                    tempStoreList.add(store);//adds store to the storeList that the reducer will receive
+                                }
+                            }
                         }
                     }
                 }
-            }
             }
             JSONObject preReduce = new JSONObject();
             preReduce.put("IntermediateData" ,storesWithProductsToJson(tempStoreList));
@@ -430,7 +475,8 @@ public class WorkerAction implements Runnable {
     //Puts stores and their products in a json Array
     public JSONArray storesWithProductsToJson(ArrayList<Store> stores) {
         JSONArray storesJArray = new JSONArray();// stores all store jsons
-
+        //locking store list to avoid race conditions
+        synchronized (storeListLock) {
         for (Store store : stores) {
             //stores the name the id and the  products jsonArray
             JSONObject storeJson = new JSONObject();
@@ -452,6 +498,7 @@ public class WorkerAction implements Runnable {
 
             storeJson.put("Products", productsArray); // add product list to store object
             storesJArray.put(storeJson);           // add store to master array
+        }
         }
         return storesJArray;
     }

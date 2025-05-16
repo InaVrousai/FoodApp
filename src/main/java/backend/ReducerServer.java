@@ -10,33 +10,34 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ReducerServer implements Runnable{
-    private static final Object lock = new Object();//used for synchronisation
+public class ReducerServer implements Runnable {
+    private static final Object lock = new Object(); // Used for synchronization
     private final Socket socket;
-    //map to store workers intermediate results
+
+    // Map to store workers' intermediate results by MapID
     private static final Map<Integer, ArrayList<CustomMessage>> intermediateResults = new HashMap<>();
-    //map to know if we have received messages from all the workers
+
+    // Map to track how many worker results have been received for each MapID
     private static final Map<Integer, Integer> resultsCount = new HashMap<>();
 
-    private static  int numberOfWorkers;
+    private static int numberOfWorkers;
+
     public static void main(String[] args) {
         if (args.length != 1) {
-            System.err.println("Usage: java ReducerServer <port>");
+            System.err.println("Usage: java ReducerServer <number_of_workers>");
             System.exit(1);
         }
 
         try (ServerSocket serverSocket = new ServerSocket(6000)) {
-            System.out.println("Reducer is running on port " + 6000);
+            System.out.println("Reducer is running on port 6000");
 
+            numberOfWorkers = Integer.parseInt(args[0]);
+            System.out.println("Reducer received numberOfWorkers: " + numberOfWorkers);
 
-
-                numberOfWorkers = Integer.parseInt(args[0]);
-                System.out.println("Reducer received numberOfWorkers: " + numberOfWorkers);
-
-
+            // Accept incoming messages from workers
             while (true) {
                 Socket masterSocket = serverSocket.accept();
-                //creates a new thread
+                // Handle each worker message in a new thread
                 new Thread(() -> handleWorkerMessage(masterSocket)).start();
             }
 
@@ -44,7 +45,6 @@ public class ReducerServer implements Runnable{
             e.printStackTrace();
         }
     }
-
 
     public ReducerServer(Socket socket) {
         this.socket = socket;
@@ -56,10 +56,7 @@ public class ReducerServer implements Runnable{
     }
 
     private static void handleWorkerMessage(Socket socket) {
-        try (
-                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-                ObjectInputStream in = new ObjectInputStream(socket.getInputStream())
-        ) {
+        try (ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
             Object obj = in.readObject();
             if (!(obj instanceof CustomMessage)) {
                 System.err.println("Invalid message received.");
@@ -69,52 +66,57 @@ public class ReducerServer implements Runnable{
             CustomMessage message = (CustomMessage) obj;
             String action = message.getAction();
             JSONObject params = message.getParameters();
-            System.out.println("Received action: " + message.getAction());
+
+            System.out.println("Received action: " + action);
             System.out.println("Payload: " + message.getJsonString());
 
-            synchronized (lock){
-                if (message.getAction().equals("Search") || message.getAction().equals("TotalSalesStoreCategory") || message.getAction().equals("TotalSalesProductType")) {
-                    int mapID = params.getInt("MapID");//the mapID that the message carries
-                    //if this is the first mapID we receive for a message
+            synchronized (lock) {
+                if (action.equals("Search") || action.equals("TotalSalesStoreCategory") || action.equals("TotalSalesProductType")) {
+                    int mapID = params.getInt("MapID"); // MapID carried in the message
+
+                    // Initialize tracking for new MapID
                     if (!intermediateResults.containsKey(mapID)) {
-
-                        intermediateResults.put(mapID, new ArrayList<>());//if the map dosent have this mapID
-
-                        resultsCount.put(mapID, 0);//initializes the worker response counter
+                        intermediateResults.put(mapID, new ArrayList<>());
+                        resultsCount.put(mapID, 0);
                     }
-                    intermediateResults.get(mapID).add(message); // Store the CustomMessage
-                    resultsCount.put(mapID, resultsCount.getOrDefault(mapID, 0)+ 1); //increases the worker response counter
 
+                    intermediateResults.get(mapID).add(message); // Store the message
+                    resultsCount.put(mapID, resultsCount.get(mapID) + 1); // Increment count
 
+                    // Wait until all worker responses are received
                     while (resultsCount.containsKey(mapID) && resultsCount.get(mapID) < numberOfWorkers) {
                         try {
-                            lock.wait(); // waits until all worker messages arrive
+                            lock.wait();
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }
                     }
-                    // If the key has been removed, then another thread already performed the reduce.
+
+                    // Check if already processed by another thread
                     if (!resultsCount.containsKey(mapID)) {
                         lock.notifyAll();
                         return;
                     }
-                    //if all messages for a mapID arrived from workers
-                    if (resultsCount.get(mapID) == numberOfWorkers) {
-                        //reduce
-                        CustomMessage reducedMessage = reduce(intermediateResults.get(mapID), action);
 
-                        try (Socket masterSocket = new Socket("localhost", 7000);
-                            ObjectOutputStream masterOut = new ObjectOutputStream(masterSocket.getOutputStream())) {
+                    // All messages received, perform reduce
+                    if (resultsCount.get(mapID) == numberOfWorkers) {
+                        CustomMessage reducedMessage = reduce(intermediateResults.get(mapID), action);
+                        System.out.println("Reduced message: " + reducedMessage.getJsonString());
+
+                        // Send the reduced result to the MasterServer
+                        try (Socket masterSocket = new Socket("192.168.1.7", 7000);
+                             ObjectOutputStream masterOut = new ObjectOutputStream(masterSocket.getOutputStream())) {
                             masterOut.writeObject(reducedMessage);
                             masterOut.flush();
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-                        // Clean up data structures for this MapID
+
+                        // Cleanup
                         intermediateResults.remove(mapID);
                         resultsCount.remove(mapID);
                     }
-                    lock.notifyAll();//wakes up threads
+                    lock.notifyAll(); // Wake up other waiting threads
                 }
             }
 
@@ -124,14 +126,15 @@ public class ReducerServer implements Runnable{
             try { socket.close(); } catch (IOException ignored) {}
         }
     }
-    //Takes an arrayList full of custom messages and reduces based on the action
-    private static CustomMessage reduce(ArrayList<CustomMessage> intermediates,String action) {
 
+    // Reduces a list of intermediate messages into one final result, based on the action type
+    private static CustomMessage reduce(ArrayList<CustomMessage> intermediates, String action) {
         if (action.equals("Search")) {
-            JSONObject reducedMessage = new JSONObject(); // main wrapper
-            JSONArray storesArray = new JSONArray(); // collect all store JSONObjects
+            JSONObject reducedMessage = new JSONObject();
+            JSONArray storesArray = new JSONArray();
+
             reducedMessage.put("MapID", intermediates.get(0).getParameters().getInt("MapID"));
-            //for every CustomMessage
+
             for (CustomMessage msg : intermediates) {
                 if (msg.getParameters() != null) {
                     JSONArray intermediateStores = msg.getParameters().getJSONArray("IntermediateData");
@@ -140,30 +143,28 @@ public class ReducerServer implements Runnable{
                     }
                 }
             }
+
             reducedMessage.put("Stores", storesArray);
             return new CustomMessage("ReducedSearch", reducedMessage, null, null);
-        }else{
-            JSONObject reducedMessage = new JSONObject(); //stores the reduced data and mapID
-            JSONArray reducedArray = new JSONArray(); //stores all the store data
-            //inserts the mapID to the reduced message
+
+        } else {
+            JSONObject reducedMessage = new JSONObject();
+            JSONArray reducedArray = new JSONArray();
+
             reducedMessage.put("MapID", intermediates.get(0).getParameters().getInt("MapID"));
 
             for (CustomMessage msg : intermediates) {
                 if (msg.getParameters() != null) {
-                    //A jason array that stores the jasoOobject that contains storeName totalSales
-                    JSONArray jArray = msg.getParameters().getJSONArray("IntermediateData");
-                    if (jArray == null)
-                        continue;
+                    JSONArray jArray = msg.getParameters().optJSONArray("IntermediateData");
+                    if (jArray == null) continue;
                     for (int i = 0; i < jArray.length(); i++) {
-                        reducedArray.put(jArray.getJSONObject(i));// inserts jsonObj in the array
+                        reducedArray.put(jArray.getJSONObject(i));
                     }
                 }
             }
+
             reducedMessage.put("Stores", reducedArray);
             return new CustomMessage("ReducedTotalSales", reducedMessage, null, null);
         }
-
     }
-
-
 }

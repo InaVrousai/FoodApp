@@ -6,19 +6,18 @@ import java.net.*;
 public class ManagerRequest {
 
     public CustomMessage sendRequest(CustomMessage message) {
-        CustomMessage response ;
-        try (Socket managerSocket = new Socket("localhost",5000);
-       ObjectOutputStream out = new ObjectOutputStream(managerSocket.getOutputStream());
-       ObjectInputStream in = new ObjectInputStream(managerSocket.getInputStream());){
+        CustomMessage response;
+        try (Socket managerSocket = new Socket("192.168.1.7", 5000);
+             ObjectOutputStream out = new ObjectOutputStream(managerSocket.getOutputStream());
+             ObjectInputStream in = new ObjectInputStream(managerSocket.getInputStream())) {
 
             System.out.println("Manager connected");
 
-
-            //Sending the message to the server
+            // Send the message to the server
             out.writeObject(message);
             out.flush();
 
-            //Reading server response and returning it
+            // Read the server's response and return it
             response = (CustomMessage) in.readObject();
             return response;
 
@@ -26,9 +25,8 @@ public class ManagerRequest {
             System.out.println(e);
         }
 
-
-        return new CustomMessage("NACK",null,null,null);
+        // If an error occurs, return a negative acknowledgment
+        return new CustomMessage("NACK", null, null, null);
     }
 
 }
-

@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import static java.lang.Math.max;
 
 public class Store implements Serializable {
-    private static int id; //used in mapping
+    private int id; //used in mapping
     private final String storeName;
     private double latitude;
     private double longitude;
@@ -35,7 +35,7 @@ public class Store implements Serializable {
     public int getId(){ return id;}
 
     public  void setId(int id){
-        Store.id = id;
+        this.id = id;
     }
     public int getTotalSales(){ return totalSales;}
 

@@ -3,13 +3,15 @@ package backend;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+
 
 public class Worker{
 
     protected  static ArrayList<Store> storesList = new ArrayList<>();
-    protected  static  Map<Integer, Store> storeMap = new ConcurrentHashMap<>(); //is used to find store quickly
+    protected  static  Map<Integer, Store> storeMap = new HashMap<>(); //is used to find store quickly
+    protected  final static Object storeMapLock = new Object();
+    protected  final static Object storeListLock = new Object();
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -27,7 +29,7 @@ public class Worker{
 
             // Send connection information to the server (Master)
             // by sending the port number on which the worker is listening.
-            try (Socket serverSocket = new Socket("localhost", 5000)) {
+            try (Socket serverSocket = new Socket("192.168.1.7", 5000)) {
                 DataOutputStream serverSocketOutput = new DataOutputStream(serverSocket.getOutputStream());
                 serverSocketOutput.writeUTF(String.valueOf(port));
                 serverSocketOutput.flush();
