@@ -21,7 +21,6 @@ public class CustomMessage implements Serializable {
         this.product = product;
     }
 
-
     public String getAction() {
         return action;
     }

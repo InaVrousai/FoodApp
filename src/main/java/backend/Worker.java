@@ -10,8 +10,8 @@ public class Worker{
 
     protected  static ArrayList<Store> storesList = new ArrayList<>();
     protected  static  Map<Integer, Store> storeMap = new HashMap<>(); //is used to find store quickly
-    protected  static Object storeMapLock = new Object();
-    protected  static Object storeListLock = new Object();
+    protected  final static Object storeMapLock = new Object();
+    protected  final static Object storeListLock = new Object();
 
     public static void main(String[] args) {
         if (args.length != 2) {

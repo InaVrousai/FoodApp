@@ -1,23 +1,16 @@
 {
-  "StoreName": "Poseidon's Catch",
-  "Latitude": 37.988000,
-  "Longitude": 23.730000,
-  "FoodCategory": "seafood",
-  "Stars": 4.5,
-  "NoOfVotes": 112,
-  "StoreLogo": "/usr/bin/images/storeLogo2.png",
+  "StoreName": "Burger Heaven",
+  "Latitude": 37.995000,
+  "Longitude": 23.735000,
+  "FoodCategory": "burgers",
+  "Stars": 4.3,
+  "NoOfVotes": 98,
+  "StoreLogo": "/usr/bin/images/storeLogo3.png",
   "Products": [
     {
-      "ProductName": "Grilled Kalamari",
-      "ProductType": "seafood",
-      "Available Amount": 28,
-      "Price": 14.00
-    },
-    {
-      "ProductName": "Fisherman's Pasta",
-      "ProductType": "pasta",
-      "Available Amount": 20,
-      "Price": 16.50
-    }
-  ]
+      "ProductName": "The Zeus Burger",
+      "ProductType": "burger",
+      "Available Amount": 55,
+      "Price": 9.00
+    }]
 }

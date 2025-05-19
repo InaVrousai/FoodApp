@@ -64,7 +64,11 @@ public class MasterHandler implements Runnable {
                 // fetch the Store object from the message
                 Store store = msg.getStore();
                 String storeName = store.getStoreName();
+                //if the store already exists
+                if(MasterServer.storeNameToId.containsKey(storeName)){
+                    sendResponse(new CustomMessage("ERROR", new JSONObject().put("ERROR","The store already exists!!!"), null, null),socket);
 
+                }
                 // assign a new ID and set on the Store
                 int storeId = MasterServer.getNextRestaurantId();
                 store.setId(storeId);
@@ -223,7 +227,7 @@ public class MasterHandler implements Runnable {
                         null
                 );
                 Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
-                System.out.println("[DEBUG ClientHandler] Worker raw response: " + raw);
+
 
                 if (raw instanceof CustomMessage cm && cm.getAction().equals("ACK")) {
                     sendResponse(new CustomMessage("ACK", new JSONObject(), null, null),socket);
@@ -319,7 +323,7 @@ public class MasterHandler implements Runnable {
                 );
                 Object raw = MasterServer.sendMessageExpectReply(workerMsg, workerId);
 
-                // 4) return
+                //  return
                 if (raw instanceof CustomMessage cm && cm.getAction().equals("ACK")) {
                     sendResponse(new CustomMessage("ACK", new JSONObject(), null, null),socket);
                 } else {

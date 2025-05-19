@@ -183,7 +183,7 @@ public class MasterServer {
                     e.printStackTrace();
                 }
             }).start();
-            seedInitialStores();
+           // seedInitialStores();
 
             while (true) {
                 Socket masterHandler = serverSocket.accept();

@@ -52,6 +52,9 @@ public class ClientDummy {
                 }
                 case 2: {
 
+                    //call search again so the client has updated products amounts
+                    response = clientRequest.search(latitude, longitude, null,0, "-");
+
                     System.out.print("Enter store name to buy from: ");
                     String storeName = in.nextLine().trim();
 
@@ -139,8 +142,6 @@ public class ClientDummy {
                         System.out.println("Start the procces again");
                     }else{
                         System.out.println("Products bought successfully");
-                        //call search again so the client has updated products amounts
-                        response = clientRequest.search(latitude, longitude, null,0, "-");
                     }
                     break;
                 }

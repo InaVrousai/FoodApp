@@ -256,7 +256,7 @@ public class Manager {
                             JSONArray storesArray = params.getJSONArray("Stores");
                             for (int i = 0; i < storesArray.length(); i++) {
                                 JSONObject storeJ = storesArray.getJSONObject(i);//we take the jsonObject and we read its parameters
-                                String storeName = storeJ.getString("Store");
+                                String storeName = storeJ.getString("StoreName");
                                 int totalSales = storeJ.getInt("TotalSales");
                                 grandTotalSaless += totalSales;
                                 System.out.println("Store: " + storeName + ", Total Sales: " + totalSales);
@@ -292,7 +292,7 @@ public class Manager {
                             JSONArray storesArray = params.getJSONArray("Stores");
                             for (int i = 0; i < storesArray.length(); i++) {
                                 JSONObject storeJ = storesArray.getJSONObject(i);//we take the jsonObject and we read its parameters
-                                String storeName = storeJ.getString("Store");
+                                String storeName = storeJ.getString("StoreName");
                                 int totalSales = storeJ.getInt("TotalSales");
                                 grandTotalSales += totalSales;
                                 System.out.println("Store: " + storeName + ", Total Sales: " + totalSales);
