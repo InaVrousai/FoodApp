@@ -29,7 +29,7 @@ public class Worker{
 
             // Send connection information to the server (Master)
             // by sending the port number on which the worker is listening.
-            try (Socket serverSocket = new Socket("localhost", 5000)) {
+            try (Socket serverSocket = new Socket("192.168.1.7", 5000)) {
                 DataOutputStream serverSocketOutput = new DataOutputStream(serverSocket.getOutputStream());
                 serverSocketOutput.writeUTF(String.valueOf(port));
                 serverSocketOutput.flush();

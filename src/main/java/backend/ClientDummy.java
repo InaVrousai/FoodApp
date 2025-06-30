@@ -3,7 +3,6 @@ package backend;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -16,17 +15,18 @@ public class ClientDummy {
         boolean exit = false;
 
         ClientRequest clientRequest = new ClientRequest();
-         System.out.print("Enter your latitude: ");
+        System.out.print("Enter your latitude: ");
         double latitude = in.nextDouble();
         System.out.print("Enter your longitude: ");
         double longitude = in.nextDouble();
 
-        //first show stores that are near the client
-        CustomMessage response = clientRequest.search(latitude, longitude, null,0, "-");
-        printReducedSearchResults(response);//show stores near the client
+        // First, show stores that are near the client
+        CustomMessage response = clientRequest.search(latitude, longitude, null, 0, "-");
+        printReducedSearchResults(response); // Display stores near the client
+
         while (!exit) {
             System.out.println("\n========== Client Menu ==========");
-            System.out.println("Welcome what do you want to do?");
+            System.out.println("Welcome! What would you like to do?");
             System.out.println("1. Filter stores");
             System.out.println("2. Select store to buy from");
             System.out.println("3. Rate Store");
@@ -36,11 +36,11 @@ public class ClientDummy {
 
             switch (choice) {
                 case 1: {
-                    System.out.print("Enter categories (comma-separated");
-                    String input = in.nextLine().trim(); // Trim the input!
+                    System.out.print("Enter categories (comma-separated): ");
+                    String input = in.nextLine().trim(); // Trim the input
                     List<String> categories = input.isEmpty() ? new ArrayList<>() : Arrays.asList(input.split(","));
 
-                    System.out.print("Enter minimum stars (0-5), 0 for any): ");
+                    System.out.print("Enter minimum stars (0-5, 0 for any): ");
                     int minStars = in.nextInt();
                     in.nextLine();
                     System.out.print("Enter price range ($, $$, $$$ or - for any): ");
@@ -52,8 +52,8 @@ public class ClientDummy {
                 }
                 case 2: {
 
-                    //call search again so the client has updated products amounts
-                    response = clientRequest.search(latitude, longitude, null,0, "-");
+                    // Call search again to get updated product quantities
+                    response = clientRequest.search(latitude, longitude, null, 0, "-");
 
                     System.out.print("Enter store name to buy from: ");
                     String storeName = in.nextLine().trim();
@@ -96,7 +96,8 @@ public class ClientDummy {
 
                     JSONArray orderArray = new JSONArray();
                     boolean addMore = true;
-                    //while customer wants to add more
+
+                    // While customer wants to add more products
                     while (addMore) {
                         System.out.print("Enter product name to buy: ");
                         String productAnswer = in.nextLine().trim();
@@ -137,27 +138,26 @@ public class ClientDummy {
 
                     // Send buy request
                     CustomMessage responseB = clientRequest.buy(storeName, orderArray, null);
-                    if(responseB.getAction().equals("ERROR")){
+                    if (responseB.getAction().equals("ERROR")) {
                         System.out.println(responseB.getJsonString());
-                        System.out.println("Start the procces again");
-                    }else{
-                        System.out.println("Products bought successfully");
+                        System.out.println("Start the process again.");
+                    } else {
+                        System.out.println("Products bought successfully.");
                     }
                     break;
                 }
                 case 3: {
                     System.out.print("Enter store name to rate: ");
                     String storeName = in.nextLine();
-                    System.out.print("How many stars you rate the store 1-5: ");
+                    System.out.print("How many stars do you rate the store (1-5): ");
                     double stars = in.nextDouble();
 
                     CustomMessage response1 = clientRequest.rate(storeName, stars, null);
-                    if(response1.getAction().equals("ERROR")){
+                    if (response1.getAction().equals("ERROR")) {
                         System.out.println(response1.getJsonString());
-                    }else{
-                        System.out.println("Store rated successfully!!");
+                    } else {
+                        System.out.println("Store rated successfully!");
                     }
-
                     break;
                 }
                 case 0:
@@ -169,7 +169,6 @@ public class ClientDummy {
                     exit = true;
                     System.out.println("There is no option: " + choice);
                     break;
-
             }
         }
     }
@@ -185,22 +184,16 @@ public class ClientDummy {
         JSONArray storeArray = params.getJSONArray("Stores");
 
         if (storeArray.isEmpty()) {
-            System.out.println("You live to far from civilisation ,no stores found");
+            System.out.println("You live too far from civilization, no stores found.");
             return;
         }
 
-            System.out.println("Stores Near you:");
-            //show stores that are near the client
-            for (int i = 0; i < storeArray.length(); i++) {
-                JSONObject storeJson = storeArray.getJSONObject(i);
-                String storeName = storeJson.getString("StoreName");
-                System.out.println("- " + storeName);
-            }
-
+        System.out.println("Stores near you:");
+        // Display stores near the client
+        for (int i = 0; i < storeArray.length(); i++) {
+            JSONObject storeJson = storeArray.getJSONObject(i);
+            String storeName = storeJson.getString("StoreName");
+            System.out.println("- " + storeName);
+        }
     }
-
 }
-
-
-
-
